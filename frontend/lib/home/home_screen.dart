@@ -1,6 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:frontend/features/recipe/recipe_screen.dart';
 import '../core/storage/token_storage.dart';
+import '../core/theme/app_colors.dart';
+import '../core/theme/app_text_styles.dart';
+import '../features/notification/notification_screen.dart';
+import '../features/pantry/pantry_screen.dart';
+import '../features/shopping/shopping_screen.dart';
+import '../features/navigation/main_bottom_nav.dart';
+import '../features/recipe/recipe_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -55,32 +63,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black54,
+      backgroundColor: AppColors.background,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: MainFab(onPressed: () => _openScreen(const PantryScreen())),
+      bottomNavigationBar: MainBottomBar(
         currentIndex: 0,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.kitchen), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.delete_outline), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_outlined), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_none), label: ''),
-        ],
+        onHome: () => _openScreen(const HomeScreen()),
+        onRecipe: () => _openScreen(const RecipeScreen()),
+        onShopping: () => _openScreen(const ShoppingScreen()),
+        onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(fullName),
               const SizedBox(height: 20),
-              const Text(
-                'Recipes you can make',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
+              Text('Recipes you can make', style: AppTextStyles.subtitle),
               const SizedBox(height: 12),
               SizedBox(
                 height: 230,
@@ -141,7 +142,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _buildStatCard(
                       label: 'Sắp hết hạn',
                       value: '0',
-                      background: const Color(0xFFEDEDED),
+                      background: AppColors.surfaceSoft,
+                      icon: Icons.warning_amber_rounded,
+                      iconColor: AppColors.warning,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -149,10 +152,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: _buildStatCard(
                       label: 'Đã hết hạn',
                       value: '0',
-                      background: const Color(0xFFD9D9D9),
+                      background: AppColors.surface,
+                      icon: Icons.error_outline,
+                      iconColor: AppColors.danger,
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              Text('Mẹo bảo quản thực phẩm (Daily Tips)',
+                  style: AppTextStyles.subtitle),
+              const SizedBox(height: 12),
+              _buildTipCard(
+                icon: Icons.eco_outlined,
+                title: 'Bảo quản rau xanh',
+                message:
+                    'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.',
+                iconBackground: AppColors.primarySoft,
+                iconColor: AppColors.success,
+              ),
+              const SizedBox(height: 12),
+              _buildTipCard(
+                icon: Icons.set_meal_outlined,
+                title: 'Giữ thịt tươi lâu',
+                message: 'Chia nhỏ thịt trước khi cấp đông để dễ dùng.',
+                iconBackground: AppColors.surfaceSoft,
+                iconColor: AppColors.warning,
               ),
             ],
           ),
@@ -163,30 +188,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
-        ? 'Hello!' : 'Hello $name! 👋';
+      ? 'Hello' : 'Hello $name';
 
     return Row(
       children: [
         const CircleAvatar(
           radius: 22,
-          backgroundColor: Color(0xFFE7D7FF),
-          child: Icon(Icons.person, color: Colors.white),
+          backgroundColor: AppColors.primarySoft,
+          child: Icon(Icons.person, color: AppColors.surface),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                displayName,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700),
-              ),
+              Text(displayName, style: AppTextStyles.subtitle),
               const SizedBox(height: 4),
-              const Text(
-                'Welcome back',
-                style: TextStyle(color: Colors.black45, fontSize: 12),
-              ),
+              Text('Welcome back', style: AppTextStyles.caption),
             ],
           ),
         ),
@@ -211,13 +229,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.shadow,
             blurRadius: 12,
-            offset: const Offset(0, 6),
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -234,14 +252,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text('Pizza',
-                style: TextStyle(fontSize: 11, color: Colors.black54)),
+            Text('Pizza', style: AppTextStyles.caption),
             const SizedBox(height: 2),
             Text(
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+              style: AppTextStyles.subtitle,
             ),
             const SizedBox(height: 4),
             SizedBox(
@@ -249,32 +266,30 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: tags.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
                 itemBuilder: (_, i) => Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDEDED),
+                    color: AppColors.surfaceSoft,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(tags[i], style: const TextStyle(fontSize: 9)),
+                  child: Text(tags[i], style: AppTextStyles.caption),
                 ),
               ),
             ),
             const Spacer(),
             Row(
               children: [
-                const Icon(Icons.access_time, size: 12, color: Colors.black45),
+                const Icon(Icons.access_time,
+                  size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
-                Text(time,
-                    style:
-                        const TextStyle(fontSize: 10, color: Colors.black54)),
+                Text(time, style: AppTextStyles.caption),
                 const SizedBox(width: 12),
-                const Icon(Icons.list_alt, size: 12, color: Colors.black45),
+                const Icon(Icons.list_alt,
+                  size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
-                Text(count,
-                    style:
-                        const TextStyle(fontSize: 10, color: Colors.black54)),
+                Text(count, style: AppTextStyles.caption),
               ],
             )
           ],
@@ -287,6 +302,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String label,
     required String value,
     required Color background,
+    required IconData icon,
+    required Color iconColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -301,16 +318,68 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: Colors.black,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(8),
             ),
+            child: Icon(icon, size: 18, color: iconColor),
           ),
           const SizedBox(height: 10),
-          Text(value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(value, style: AppTextStyles.title),
+          Text(label, style: AppTextStyles.caption),
         ],
       ),
+    );
+  }
+
+  static Widget _buildTipCard({
+    required IconData icon,
+    required String title,
+    required String message,
+    required Color iconBackground,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.subtitle),
+                const SizedBox(height: 4),
+                Text(message, style: AppTextStyles.body),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _openScreen(Widget screen) {
+    if (!mounted) return;
+    if (screen is HomeScreen) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
     );
   }
 }

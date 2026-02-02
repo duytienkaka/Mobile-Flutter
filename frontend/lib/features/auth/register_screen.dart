@@ -36,7 +36,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 350),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected ? AppColors.primary : AppColors.surfaceSoft,
@@ -193,36 +193,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           : () async {
                               setState(() => loading = true);
                               try {
-                                if (isEmail) {
-                                  await AuthService.registerEmail(
-                                    nameCtrl.text,
-                                    emailCtrl.text,
-                                    passCtrl.text,
-                                  );
+                                final name = nameCtrl.text.trim();
+                                final email = emailCtrl.text.trim();
+                                final pass = passCtrl.text.trim();
+                                final phone = phoneCtrl.text.trim();
 
-                                  if (!mounted) return;
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Đăng ký thành công.')),
-                                  );
+                                if (isEmail) {
+                                  if (name.isEmpty || email.isEmpty || pass.isEmpty) {
+                                    _showError(context, 'Cần điền đầy đủ thông tin');
+                                    return;
+                                  }
                                 } else {
-                                  await AuthService
-                                      .sendOtpForRegister(phoneCtrl.text);
+                                  if (name.isEmpty || phone.isEmpty) {
+                                    _showError(context, 'Cần điền đầy đủ thông tin');
+                                    return;
+                                  }
+                                  if (!_isValidPhone(phone)) {
+                                    _showError(context, 'Số điện thoại không đúng định dạng');
+                                    return;
+                                  }
+                                }
+
+                                if (isEmail) {
+                                  await AuthService.registerEmail(name, email, pass);
+                                } else {
+                                  await AuthService.sendOtpForRegister(phone);
                                   if (!mounted) return;
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => OtpScreen(
-                                        phone: phoneCtrl.text,
-                                        fullName: nameCtrl.text,
+                                        phone: phone,
+                                        fullName: name,
                                         isRegister: true,
                                       ),
                                     ),
                                   );
                                 }
                               } catch (e) {
-                                _showError(context, e.toString());
+                                _showError(context, _mapRegisterError(e.toString()));
                               } finally {
                                 if (mounted) setState(() => loading = false);
                               }
@@ -264,5 +273,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     );
+  }
+
+  bool _isValidPhone(String phone) => RegExp(r'^0\\d{9}$').hasMatch(phone);
+
+  String _mapRegisterError(String raw) {
+    final text = raw.replaceAll('Exception: ', '').trim().toLowerCase();
+    if (text.contains('exist') || text.contains('đã tồn tại') || text.contains('already')) {
+      return 'Tài khoản đã tồn tại';
+    }
+    return raw.replaceAll('Exception: ', '').trim();
   }
 }

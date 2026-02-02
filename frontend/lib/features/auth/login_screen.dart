@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import '../auth/register_screen.dart';
 import '../auth/otp_screen.dart';
+import '../../home/home_screen.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/top_snackbar.dart';
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+  static const _tabAnimDuration = Duration(milliseconds: 350);
   bool loading = false;
 
   void _showError(BuildContext context, String message) {
@@ -35,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: _tabAnimDuration,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected ? AppColors.primary : AppColors.surfaceSoft,
@@ -165,37 +167,52 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: loading
                             ? null
                             : () async {
-                                setState(() => loading = true);
-                                try {
-                                  if (isEmail) {
-                                    await AuthService.loginEmail(
-                                        emailCtrl.text, passCtrl.text);
+        final email = emailCtrl.text.trim();
+        final pass = passCtrl.text.trim();
+        final phone = phoneCtrl.text.trim();
 
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Đăng nhập thành công.')),
-                                    );
-                                  } else {
-                                    await AuthService
-                                        .sendOtpForLogin(phoneCtrl.text);
-                                    if (!mounted) return;
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => OtpScreen(
-                                          phone: phoneCtrl.text,
-                                          isRegister: false,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  _showError(context, e.toString());
-                                } finally {
-                                  if (mounted) setState(() => loading = false);
-                                }
-                              },
+        if (isEmail) {
+          if (email.isEmpty || pass.isEmpty) {
+            _showError(context, 'Cần điền đầy đủ thông tin');
+            return;
+          }
+        } else {
+          if (phone.isEmpty) {
+            _showError(context, 'Cần điền đầy đủ thông tin');
+            return;
+          }
+        }
+
+        setState(() => loading = true);
+        try {
+          if (isEmail) {
+            await AuthService.loginEmail(email, pass);
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          } else {
+            await AuthService.sendOtpForLogin(phone);
+            if (!mounted) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OtpScreen(
+                  phone: phone,
+                  isRegister: false,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (!mounted) return;
+          _showError(context, isEmail
+              ? 'Tài khoản hoặc mật khẩu không đúng.'
+              : e.toString());
+        } finally {
+          if (mounted) setState(() => loading = false);
+        }
+      },
                         child: loading
                             ? const SizedBox(
                                 width: 20,
@@ -211,8 +228,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (_) => const RegisterScreen()),
+                        PageRouteBuilder(
+                          transitionDuration: const Duration(milliseconds: 350),
+                          reverseTransitionDuration: const Duration(milliseconds: 350),
+                          pageBuilder: (_, animation, __) => FadeTransition(
+                            opacity: animation,
+                            child: const RegisterScreen(),
+                          ),
+                        ),
                       ),
                       child: const Text('Chưa có tài khoản? Đăng ký ngay',
                           style: TextStyle(color: AppColors.textSecondary)),
