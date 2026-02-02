@@ -1,149 +1,100 @@
-using Backend.Data;
-using Backend.DTOs;
-using Backend.Models;
-using Backend.Services;
+using Backend.Auth.DTOs;
+using Backend.Auth.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Backend.Controllers
+namespace Backend.Controllers;
+
+[ApiController]
+[Route("auth")]
+public class AuthController : ControllerBase
 {
-    [ApiController]
-    [Route("auth")]
-    public class AuthController : ControllerBase
+    private readonly AuthService _auth;
+    private readonly OtpService _otp;
+    private readonly JwtService _jwt;
+
+    public AuthController(AuthService auth, OtpService otp, JwtService jwt)
     {
-        private readonly AppDbContext _context;
-        private readonly JwtService _jwt;
-        private readonly OtpService _otp;
+        _auth = auth;
+        _otp = otp;
+        _jwt = jwt;
+    }
 
-        public AuthController(
-            AppDbContext context,
-            JwtService jwt,
-            OtpService otp)
+    [HttpPost("register-email")]
+    public async Task<IActionResult> RegisterEmail(RegisterEmailDto dto)
+    {
+        try
         {
-            _context = context;
-            _jwt = jwt;
-            _otp = otp;
-        }
-
-        // ================= EMAIL LOGIN =================
-        [HttpPost("login-email")]
-        public IActionResult LoginEmail(LoginEmailRequest request)
-        {
-            var user = _context.Users
-                .FirstOrDefault(x => x.Email == request.Email);
-
-            if (user == null)
-                return BadRequest("Email không tồn tại");
-
-            if (!PasswordService.Verify(request.Password, user.PasswordHash!))
-                return BadRequest("Sai mật khẩu");
-
-            if (!user.IsEmailVerified)
-                return BadRequest("Email chưa được xác thực");
-
+            var user = await _auth.RegisterByEmail(dto.FullName, dto.Email, dto.Password);
             var token = _jwt.GenerateToken(user);
-
-            return Ok(new
-            {
-                token,
-                user.Id,
-                user.Email
-            });
+            return Ok(new { token });
         }
-
-        // ================= SEND OTP =================
-        [HttpPost("send-otp")]
-        public IActionResult SendOtp(SendOtpRequest request)
+        catch (Exception ex)
         {
-            var user = _context.Users.FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
-
-            if (user == null)
-                return BadRequest("Số điện thoại chưa được đăng ký");
-
-            _otp.GenerateOtp(request.PhoneNumber);
-
-            return Ok("OTP đã được gửi");
+            return BadRequest(new { message = ex.Message });
         }
+    }
 
-        // ================= VERIFY OTP =================
-        [HttpPost("verify-otp")]
-        public IActionResult VerifyOtp(VerifyOtpRequest request)
+    [HttpPost("login-email")]
+    public async Task<IActionResult> LoginEmail(LoginEmailDto dto)
+    {
+        try
         {
-            var valid = _otp.VerifyOtp(
-                request.PhoneNumber,
-                request.Code
-            );
-
-            if (!valid)
-                return BadRequest("OTP không hợp lệ hoặc đã hết hạn");
-
-            var user = _context.Users
-                .FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
-
-            if (user == null)
-                return BadRequest("Số điện thoại chưa được đăng ký");
-
-            user.IsPhoneVerified = true;
-            _context.SaveChanges();
-
+            var user = await _auth.LoginByEmail(dto.Email, dto.Password);
             var token = _jwt.GenerateToken(user);
-
-            return Ok(new
-            {
-                token,
-                user.Id,
-                user.PhoneNumber
-            });
+            return Ok(new { token });
         }
-        [HttpPost("register-email")]
-        public IActionResult RegisterEmail(RegisterEmailRequest request)
+        catch (Exception ex)
         {
-            if (_context.Users.Any(x => x.Email == request.Email))
-                return BadRequest("Email đã tồn tại");
-
-            var user = new User
-            {
-                FullName = request.FullName,
-                Email = request.Email,
-                PasswordHash = PasswordService.Hash(request.Password),
-                IsEmailVerified = true
-            };
-
-            _context.Users.Add(user);
-            _context.SaveChanges();
-
-            var token = _jwt.GenerateToken(user);
-
-            return Ok(new
-            {
-                token,
-                user.FullName,
-                user.Email
-            });
+            return BadRequest(new { message = ex.Message });
         }
-        [HttpPost("register-phone")]
-        public IActionResult RegisterPhone(RegisterPhoneRequest request)
+    }
+
+    [HttpPost("send-otp")]
+    public async Task<IActionResult> SendOtp(SendOtpDto dto)
+    {
+        try
         {
-            var user = _context.Users
-                .FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
-
-            if (user == null)
-            {
-                user = new User
-                {
-                    FullName = request.FullName,
-                    PhoneNumber = request.PhoneNumber,
-                    IsPhoneVerified = false
-                };
-                _context.Users.Add(user);
-                _context.SaveChanges();
-            }
-
-            var otp = _otp.GenerateOtp(request.PhoneNumber);
-
-            Console.WriteLine($"OTP REGISTER {request.PhoneNumber}: {otp}");
-
+            await _otp.SendOtp(dto.PhoneNumber, dto.IsRegister);
             return Ok("OTP sent");
         }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 
+    [HttpPost("register-phone")]
+    public async Task<IActionResult> RegisterPhone(RegisterPhoneDto dto)
+    {
+        try
+        {
+            var user = await _auth.RegisterByPhone(
+                dto.FullName,
+                dto.PhoneNumber,
+                dto.OtpCode
+            );
+
+            var token = _jwt.GenerateToken(user);
+            return Ok(new { token });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("login-phone")]
+    public async Task<IActionResult> LoginPhone(LoginPhoneDto dto)
+    {
+        try
+        {
+            var user = await _auth.LoginByPhone(dto.PhoneNumber, dto.OtpCode);
+            var token = _jwt.GenerateToken(user);
+            return Ok(new { token });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }
