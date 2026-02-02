@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
-import '../../home/home_screen.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../core/widgets/top_snackbar.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -42,11 +44,12 @@ class _OtpScreenState extends State<OtpScreen> {
         ),
         child: Center(
           child: SizedBox(
-            width: 420,
+            width: 360,
             child: Card(
-              elevation: 10,
+              elevation: 12,
+              shadowColor: AppColors.shadow,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -61,14 +64,12 @@ class _OtpScreenState extends State<OtpScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  const Text('Xác thực OTP',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text('Xác thực OTP', style: AppTextStyles.title),
                   const SizedBox(height: 6),
                   Text(
                     'Mã xác thực đã được gửi đến số điện thoại\n${widget.phone}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -76,31 +77,31 @@ class _OtpScreenState extends State<OtpScreen> {
                     maxLength: 6,
                     decoration: InputDecoration(
                       counterText: '',
-                      hintText: '------',
+                      hintText: '••••••',
                       filled: true,
-                      fillColor: const Color(0xFFF7F7F8),
+                      fillColor: AppColors.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                        borderSide: const BorderSide(color: AppColors.border),
                       ),
                     ),
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      letterSpacing: 16,
+                      letterSpacing: 14,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text('Mã hết hạn sau 30s',
-                      style: TextStyle(color: Colors.black45, fontSize: 12)),
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF9D649),
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -122,18 +123,15 @@ class _OtpScreenState extends State<OtpScreen> {
                                 }
 
                                 if (!mounted) return;
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const HomeScreen()),
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Xác thực thành công.')),
                                 );
                               } catch (e) {
                                 if (!mounted) return;
                                 final text =
                                     e.toString().replaceAll('Exception: ', '');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(text)),
-                                );
+                                showTopSnackBar(context, text, isError: true);
                               } finally {
                                 if (mounted) setState(() => loading = false);
                               }
@@ -150,7 +148,8 @@ class _OtpScreenState extends State<OtpScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text('Không nhận được mã? Liên hệ hỗ trợ',
-                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                      style:
+                          TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ]),
               ),
             ),
