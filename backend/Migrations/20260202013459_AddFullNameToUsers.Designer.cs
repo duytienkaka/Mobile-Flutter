@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace FridgeAssistant.Migrations
+namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260131033444_InitAuth")]
-    partial class InitAuth
+    [Migration("20260202013459_AddFullNameToUsers")]
+    partial class AddFullNameToUsers
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -55,13 +55,11 @@ namespace FridgeAssistant.Migrations
                     b.ToTable("OtpCodes");
                 });
 
-            modelBuilder.Entity("Backend.Models.User", b =>
+            modelBuilder.Entity("User", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -69,7 +67,14 @@ namespace FridgeAssistant.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsEmailVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPhoneVerified")
                         .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")

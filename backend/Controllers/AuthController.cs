@@ -54,8 +54,10 @@ namespace Backend.Controllers
         [HttpPost("send-otp")]
         public IActionResult SendOtp(SendOtpRequest request)
         {
-            Console.WriteLine(">>> SEND OTP API CALLED <<<");
-            Console.WriteLine("Phone: " + request.PhoneNumber);
+            var user = _context.Users.FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
+
+            if (user == null)
+                return BadRequest("Số điện thoại chưa được đăng ký");
 
             _otp.GenerateOtp(request.PhoneNumber);
 
@@ -78,14 +80,10 @@ namespace Backend.Controllers
                 .FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
 
             if (user == null)
-            {
-                user = new User
-                {
-                    PhoneNumber = request.PhoneNumber
-                };
-                _context.Users.Add(user);
-                _context.SaveChanges();
-            }
+                return BadRequest("Số điện thoại chưa được đăng ký");
+
+            user.IsPhoneVerified = true;
+            _context.SaveChanges();
 
             var token = _jwt.GenerateToken(user);
 
@@ -96,5 +94,56 @@ namespace Backend.Controllers
                 user.PhoneNumber
             });
         }
+        [HttpPost("register-email")]
+        public IActionResult RegisterEmail(RegisterEmailRequest request)
+        {
+            if (_context.Users.Any(x => x.Email == request.Email))
+                return BadRequest("Email đã tồn tại");
+
+            var user = new User
+            {
+                FullName = request.FullName,
+                Email = request.Email,
+                PasswordHash = PasswordService.Hash(request.Password),
+                IsEmailVerified = true
+            };
+
+            _context.Users.Add(user);
+            _context.SaveChanges();
+
+            var token = _jwt.GenerateToken(user);
+
+            return Ok(new
+            {
+                token,
+                user.FullName,
+                user.Email
+            });
+        }
+        [HttpPost("register-phone")]
+        public IActionResult RegisterPhone(RegisterPhoneRequest request)
+        {
+            var user = _context.Users
+                .FirstOrDefault(x => x.PhoneNumber == request.PhoneNumber);
+
+            if (user == null)
+            {
+                user = new User
+                {
+                    FullName = request.FullName,
+                    PhoneNumber = request.PhoneNumber,
+                    IsPhoneVerified = false
+                };
+                _context.Users.Add(user);
+                _context.SaveChanges();
+            }
+
+            var otp = _otp.GenerateOtp(request.PhoneNumber);
+
+            Console.WriteLine($"OTP REGISTER {request.PhoneNumber}: {otp}");
+
+            return Ok("OTP sent");
+        }
+
     }
 }

@@ -1,49 +1,64 @@
 import 'package:flutter/material.dart';
-import 'auth_service.dart';
 import '../../core/storage/token_storage.dart';
-import 'otp_screen.dart';
-import 'register_screen.dart';
 import '../../home/home_screen.dart';
+import 'auth_service.dart';
+import 'otp_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final emailCtrl = TextEditingController();
-  final passCtrl = TextEditingController();
-  final phoneCtrl = TextEditingController();
-  bool _isEmailMode = true;
-  bool _isLoading = false;
-
+class _RegisterScreenState extends State<RegisterScreen> {
+  bool isEmailMode = true;
+  bool agreed = false;
+  bool loading = false;
   final _switchDuration = const Duration(milliseconds: 220);
 
-  @override
-  void dispose() {
-    emailCtrl.dispose();
-    passCtrl.dispose();
-    phoneCtrl.dispose();
-    super.dispose();
-  }
+  final fullNameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  final confirmCtrl = TextEditingController();
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
-
-  void loginEmail() async {
-    if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
-      _showError("Vui lòng điền đầy đủ thông tin");
+  // ================= EMAIL REGISTER =================
+  Future<void> registerEmail() async {
+    if (!agreed) {
+      showMsg("Bạn phải đồng ý điều khoản");
+      return;
+    }
+    if (fullNameCtrl.text.trim().isEmpty) {
+      showMsg("Vui lòng nhập họ và tên");
+      return;
+    }
+    if (emailCtrl.text.trim().isEmpty) {
+      showMsg("Vui lòng nhập email");
+      return;
+    }
+    if (!emailCtrl.text.contains('@')) {
+      showMsg("Email không hợp lệ");
+      return;
+    }
+    if (passCtrl.text.length < 6) {
+      showMsg("Mật khẩu phải có ít nhất 6 ký tự");
+      return;
+    }
+    if (passCtrl.text != confirmCtrl.text) {
+      showMsg("Mật khẩu không khớp");
       return;
     }
 
-    setState(() => _isLoading = true);
-    final result = await AuthService.loginEmail(emailCtrl.text, passCtrl.text);
-    setState(() => _isLoading = false);
+    setState(() => loading = true);
+
+    final result = await AuthService.registerEmail(
+      fullNameCtrl.text.trim(),
+      emailCtrl.text.trim(),
+      passCtrl.text,
+    );
+
+    setState(() => loading = false);
 
     if (result["success"] == true) {
       await TokenStorage.saveToken(result["token"]);
@@ -54,32 +69,56 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
-      _showError(result["message"] ?? "Đăng nhập thất bại");
+      showMsg(result["message"] ?? "Đăng ký thất bại");
     }
   }
 
-  void loginPhone() async {
-    if (phoneCtrl.text.isEmpty) {
-      _showError("Vui lòng nhập số điện thoại");
+  // ================= PHONE REGISTER =================
+  Future<void> registerPhone() async {
+    if (!agreed) {
+      showMsg("Bạn phải đồng ý điều khoản");
+      return;
+    }
+    if (fullNameCtrl.text.trim().isEmpty) {
+      showMsg("Vui lòng nhập họ và tên");
+      return;
+    }
+    if (phoneCtrl.text.trim().isEmpty) {
+      showMsg("Vui lòng nhập số điện thoại");
+      return;
+    }
+    if (phoneCtrl.text.trim().length < 8) {
+      showMsg("Số điện thoại không hợp lệ");
       return;
     }
 
-    setState(() => _isLoading = true);
-    final result = await AuthService.sendOtp(phoneCtrl.text);
-    setState(() => _isLoading = false);
+    setState(() => loading = true);
+
+    final result = await AuthService.registerPhone(
+      fullNameCtrl.text.trim(),
+      phoneCtrl.text.trim(),
+    );
+
+    setState(() => loading = false);
 
     if (result["success"] == true) {
       if (mounted) {
-        await Navigator.push(
+        Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => OtpScreen(phone: phoneCtrl.text),
+            builder: (_) => OtpScreen(phone: phoneCtrl.text.trim()),
           ),
         );
       }
     } else {
-      _showError(result["message"] ?? "Không thể gửi OTP. Số điện thoại chưa đăng ký?");
+      showMsg(result["message"] ?? "Không gửi được OTP");
     }
+  }
+
+  void showMsg(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
@@ -102,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
             child: Container(
-              width: 440,
+              width: 460,
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -120,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    "Đăng nhập",
+                    "Đăng ký",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 22,
@@ -129,13 +168,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    "Chào mừng bạn quay trở lại!",
+                    "Tạo tài khoản mới để bắt đầu",
                     textAlign: TextAlign.center,
                     style: TextStyle(color: greyText),
                   ),
                   const SizedBox(height: 20),
 
-                  // Toggle email / phone
                   Container(
                     height: 44,
                     decoration: BoxDecoration(
@@ -159,40 +197,44 @@ class _LoginScreenState extends State<LoginScreen> {
                         _ModeButton(
                           label: "Email",
                           icon: Icons.email_outlined,
-                          selected: _isEmailMode,
+                          selected: isEmailMode,
                           accent: accent,
-                          onTap: () => setState(() => _isEmailMode = true),
+                          onTap: () => setState(() => isEmailMode = true),
                         ),
                         _ModeButton(
                           label: "Số điện thoại",
                           icon: Icons.phone,
-                          selected: !_isEmailMode,
+                          selected: !isEmailMode,
                           accent: accent,
-                          onTap: () => setState(() => _isEmailMode = false),
+                          onTap: () => setState(() => isEmailMode = false),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
+
+                  _ShadowField(
+                    controller: fullNameCtrl,
+                    hint: "Họ và tên",
+                    icon: Icons.person_outline,
+                  ),
+                  const SizedBox(height: 12),
 
                   AnimatedSwitcher(
                     duration: _switchDuration,
                     transitionBuilder: (child, animation) {
                       final offsetTween = Tween<Offset>(
-                        begin: Offset(_isEmailMode ? 0.1 : -0.1, 0),
+                        begin: Offset(isEmailMode ? 0.1 : -0.1, 0),
                         end: Offset.zero,
                       ).chain(CurveTween(curve: Curves.easeOutCubic));
                       return ClipRect(
                         child: SlideTransition(
                           position: animation.drive(offsetTween),
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
+                          child: FadeTransition(opacity: animation, child: child),
                         ),
                       );
                     },
-                    child: _isEmailMode
+                    child: isEmailMode
                         ? Column(
                             key: const ValueKey('email'),
                             children: [
@@ -202,10 +244,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                 icon: Icons.email_outlined,
                                 keyboardType: TextInputType.emailAddress,
                               ),
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 12),
                               _ShadowField(
                                 controller: passCtrl,
                                 hint: "Password",
+                                icon: Icons.lock_outline,
+                                obscure: true,
+                              ),
+                              const SizedBox(height: 12),
+                              _ShadowField(
+                                controller: confirmCtrl,
+                                hint: "Re - password",
                                 icon: Icons.lock_outline,
                                 obscure: true,
                               ),
@@ -224,13 +273,32 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
 
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: agreed,
+                        onChanged: (v) => setState(() => agreed = v ?? false),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Tôi đồng ý với điều khoản sử dụng và chính sách bảo mật",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
                   SizedBox(
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _isLoading
+                      onPressed: loading
                           ? null
-                          : (_isEmailMode ? loginEmail : loginPhone),
+                          : isEmailMode
+                              ? registerEmail
+                              : registerPhone,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: accent,
                         foregroundColor: Colors.black,
@@ -239,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: _isLoading
+                      child: loading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
@@ -249,7 +317,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              "Đăng nhập",
+                              "Đăng ký",
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                     ),
@@ -258,17 +326,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Chưa có tài khoản? "),
+                      const Text("Đã có tài khoản? "),
                       TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RegisterScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text("Đăng ký ngay"),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Đăng nhập ngay"),
                       ),
                     ],
                   ),
@@ -351,7 +412,6 @@ class _ShadowField extends StatelessWidget {
         color: const Color(0xFFF7F7F7),
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          // Inner shadow effect (simulate inset by dual shadows)
           BoxShadow(
             color: Color(0x33000000),
             blurRadius: 10,

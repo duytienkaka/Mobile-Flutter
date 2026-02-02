@@ -1,21 +1,16 @@
-using System;
-using System.ComponentModel.DataAnnotations;
-
-namespace Backend.Models
+public class User
 {
-    public class User
-    {
-        public int Id { get; set; }
+    public Guid Id { get; set; }
 
-        [EmailAddress]
-        public string? Email { get; set; }
+    public string FullName { get; set; } = "";
 
-        public string? PasswordHash { get; set; }
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
 
-        public string? PhoneNumber { get; set; }
+    public string? PasswordHash { get; set; }
 
-        public bool IsEmailVerified { get; set; } = false;
+    public bool IsEmailVerified { get; set; }
+    public bool IsPhoneVerified { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

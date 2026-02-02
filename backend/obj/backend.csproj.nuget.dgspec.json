@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Fridge-App\\backend\\backend.csproj": {}
+    "D:\\Mobile-Flutter\\backend\\backend.csproj": {}
   },
   "projects": {
-    "D:\\Fridge-App\\backend\\backend.csproj": {
+    "D:\\Mobile-Flutter\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Fridge-App\\backend\\backend.csproj",
+        "projectUniqueName": "D:\\Mobile-Flutter\\backend\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "D:\\Fridge-App\\backend\\backend.csproj",
+        "projectPath": "D:\\Mobile-Flutter\\backend\\backend.csproj",
         "packagesPath": "C:\\Users\\duyti\\.nuget\\packages\\",
-        "outputPath": "D:\\Fridge-App\\backend\\obj\\",
+        "outputPath": "D:\\Mobile-Flutter\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\duyti\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -44,9 +44,33 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[10.0.2, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[10.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.2, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[10.0.0, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[10.1.1, )"
             }
           },
           "imports": [

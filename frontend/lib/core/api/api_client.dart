@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const baseUrl = "http://localhost:5178";
+  static const baseUrl = "http://localhost:5074";
 
   static Future<http.Response> post(
     String path,
