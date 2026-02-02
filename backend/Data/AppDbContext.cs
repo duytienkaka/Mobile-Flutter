@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
     public DbSet<CookingHistory> CookingHistories => Set<CookingHistory>();
     public DbSet<RecipeQuery> RecipeQueries => Set<RecipeQuery>();
+    public DbSet<MealPlan> MealPlans => Set<MealPlan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +30,7 @@ public class AppDbContext : DbContext
         ConfigureShopping(modelBuilder);
         ConfigureCookingHistory(modelBuilder);
         ConfigureRecipeQuery(modelBuilder);
+        ConfigureMealPlan(modelBuilder);
     }
 
     // =====================================================
@@ -210,6 +212,39 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        e.Property(x => x.CreatedAt)
+            .HasDefaultValueSql("now()");
+    }
+
+    // =====================================================
+    // MEAL PLAN
+    // =====================================================
+    private static void ConfigureMealPlan(ModelBuilder modelBuilder)
+    {
+        var e = modelBuilder.Entity<MealPlan>();
+
+        e.ToTable("MealPlans");
+
+        e.HasKey(x => x.Id);
+
+        e.Property(x => x.MealType)
+            .IsRequired()
+            .HasMaxLength(20);
+
+        e.Property(x => x.RecipeName)
+            .IsRequired()
+            .HasMaxLength(150);
+
+        e.Property(x => x.Note)
+            .HasMaxLength(200);
+
+        e.HasOne(x => x.User)
+            .WithMany(u => u.MealPlans)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        e.HasIndex(x => new { x.UserId, x.Date });
 
         e.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");

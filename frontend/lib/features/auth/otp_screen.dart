@@ -3,6 +3,8 @@ import 'auth_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/top_snackbar.dart';
+import '../../home/home_screen.dart';
+import 'dart:async';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -23,10 +25,13 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final otpCtrl = TextEditingController();
   bool loading = false;
+  int _remainingSeconds = 30;
+  Timer? _timer;
 
   @override
   void dispose() {
     otpCtrl.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -94,8 +99,8 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text('Mã hết hạn sau 30s',
-                      style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('Mã hết hạn sau ${_remainingSeconds}s',
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -123,14 +128,16 @@ class _OtpScreenState extends State<OtpScreen> {
                                 }
 
                                 if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Xác thực thành công.')),
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => const HomeScreen(),
+                                  ),
                                 );
                               } catch (e) {
                                 if (!mounted) return;
                                 final text =
                                     e.toString().replaceAll('Exception: ', '');
+                                // ignore: use_build_context_synchronously
                                 showTopSnackBar(context, text, isError: true);
                               } finally {
                                 if (mounted) setState(() => loading = false);
@@ -157,5 +164,19 @@ class _OtpScreenState extends State<OtpScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 0) {
+        timer.cancel();
+        return;
+      }
+      if (mounted) {
+        setState(() => _remainingSeconds -= 1);
+      }
+    });
   }
 }

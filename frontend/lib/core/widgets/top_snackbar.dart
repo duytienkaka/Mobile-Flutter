@@ -8,7 +8,6 @@ void showTopSnackBar(
   bool isError = true,
 }) {
   final overlay = Overlay.of(context);
-  if (overlay == null) return;
 
   late OverlayEntry entry;
   entry = OverlayEntry(
