@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
-import '../../core/storage/token_storage.dart';
-import 'otp_screen.dart';
-import 'register_screen.dart';
+import '../auth/register_screen.dart';
+import '../auth/otp_screen.dart';
 import '../../home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,266 +12,40 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  bool isEmail = true;
+
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
-  bool _isEmailMode = true;
-  bool _isLoading = false;
+  bool loading = false;
 
-  final _switchDuration = const Duration(milliseconds: 220);
-
-  @override
-  void dispose() {
-    emailCtrl.dispose();
-    passCtrl.dispose();
-    phoneCtrl.dispose();
-    super.dispose();
+  void _showError(BuildContext context, String message) {
+    final text = message.replaceAll('Exception: ', '').trim();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(text)));
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
-
-  void loginEmail() async {
-    if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
-      _showError("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final result = await AuthService.loginEmail(emailCtrl.text, passCtrl.text);
-    setState(() => _isLoading = false);
-
-    if (result["success"] == true) {
-      await TokenStorage.saveToken(result["token"]);
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
-      }
-    } else {
-      _showError(result["message"] ?? "Đăng nhập thất bại");
-    }
-  }
-
-  void loginPhone() async {
-    if (phoneCtrl.text.isEmpty) {
-      _showError("Vui lòng nhập số điện thoại");
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final result = await AuthService.sendOtp(phoneCtrl.text);
-    setState(() => _isLoading = false);
-
-    if (result["success"] == true) {
-      if (mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OtpScreen(phone: phoneCtrl.text),
+  Widget _buildTab({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFF9D649) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-        );
-      }
-    } else {
-      _showError(result["message"] ?? "Không thể gửi OTP. Số điện thoại chưa đăng ký?");
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const bgTop = Color(0xFFFFFDF2);
-    const bgBottom = Color(0xFFF6EEC8);
-    const accent = Color(0xFFFFD233);
-    const greyText = Color(0xFF8A8A8A);
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [bgTop, bgBottom],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-            child: Container(
-              width: 440,
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 20,
-                    color: Color(0x22000000),
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    "Đăng nhập",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    "Chào mừng bạn quay trở lại!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: greyText),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Toggle email / phone
-                  Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F7),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 10,
-                          offset: Offset(3, 3),
-                        ),
-                        BoxShadow(
-                          color: Colors.white,
-                          blurRadius: 6,
-                          offset: Offset(-3, -3),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        _ModeButton(
-                          label: "Email",
-                          icon: Icons.email_outlined,
-                          selected: _isEmailMode,
-                          accent: accent,
-                          onTap: () => setState(() => _isEmailMode = true),
-                        ),
-                        _ModeButton(
-                          label: "Số điện thoại",
-                          icon: Icons.phone,
-                          selected: !_isEmailMode,
-                          accent: accent,
-                          onTap: () => setState(() => _isEmailMode = false),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  AnimatedSwitcher(
-                    duration: _switchDuration,
-                    transitionBuilder: (child, animation) {
-                      final offsetTween = Tween<Offset>(
-                        begin: Offset(_isEmailMode ? 0.1 : -0.1, 0),
-                        end: Offset.zero,
-                      ).chain(CurveTween(curve: Curves.easeOutCubic));
-                      return ClipRect(
-                        child: SlideTransition(
-                          position: animation.drive(offsetTween),
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        ),
-                      );
-                    },
-                    child: _isEmailMode
-                        ? Column(
-                            key: const ValueKey('email'),
-                            children: [
-                              _ShadowField(
-                                controller: emailCtrl,
-                                hint: "Email",
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              const SizedBox(height: 14),
-                              _ShadowField(
-                                controller: passCtrl,
-                                hint: "Password",
-                                icon: Icons.lock_outline,
-                                obscure: true,
-                              ),
-                            ],
-                          )
-                        : Column(
-                            key: const ValueKey('phone'),
-                            children: [
-                              _ShadowField(
-                                controller: phoneCtrl,
-                                hint: "Số điện thoại",
-                                icon: Icons.phone,
-                                keyboardType: TextInputType.phone,
-                              ),
-                            ],
-                          ),
-                  ),
-
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : (_isEmailMode ? loginEmail : loginPhone),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.black,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.black,
-                              ),
-                            )
-                          : const Text(
-                              "Đăng nhập",
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Chưa có tài khoản? "),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RegisterScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text("Đăng ký ngay"),
-                      ),
-                    ],
-                  ),
-                ],
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.black : Colors.black54,
               ),
             ),
           ),
@@ -280,101 +53,177 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-}
-
-class _ModeButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _ModeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.accent,
-    required this.onTap,
-  });
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: selected ? Colors.black : Colors.grey[700]),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.black : Colors.grey[700],
-                ),
-              ),
-            ],
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFF9E5), Color(0xFFFFF2B8)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-      ),
-    );
-  }
-}
+        child: Center(
+          child: SizedBox(
+            width: 420,
+            child: Card(
+              elevation: 10,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('Đăng nhập',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('Chào mừng bạn quay trở lại!',
+                      style: TextStyle(color: Colors.black54)),
 
-class _ShadowField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final bool obscure;
-  final TextInputType? keyboardType;
+                  const SizedBox(height: 20),
 
-  const _ShadowField({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-    this.obscure = false,
-    this.keyboardType,
-  });
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(children: [
+                      _buildTab(
+                        label: 'Email',
+                        selected: isEmail,
+                        onTap: () => setState(() => isEmail = true),
+                      ),
+                      const SizedBox(width: 6),
+                      _buildTab(
+                        label: 'Số điện thoại',
+                        selected: !isEmail,
+                        onTap: () => setState(() => isEmail = false),
+                      ),
+                    ]),
+                  ),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          // Inner shadow effect (simulate inset by dual shadows)
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 10,
-            offset: Offset(2, 2),
-            spreadRadius: -4,
+                  const SizedBox(height: 20),
+
+                  if (isEmail) ...[
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        filled: true,
+                        fillColor: const Color(0xFFF7F7F8),
+                        prefixIcon: const Icon(Icons.mail),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu',
+                        filled: true,
+                        fillColor: const Color(0xFFF7F7F8),
+                        prefixIcon: const Icon(Icons.lock),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Số điện thoại',
+                        filled: true,
+                        fillColor: const Color(0xFFF7F7F8),
+                        prefixIcon: const Icon(Icons.phone),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF9D649),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: loading
+                          ? null
+                          : () async {
+                              setState(() => loading = true);
+                              try {
+                                if (isEmail) {
+                                  await AuthService.loginEmail(
+                                      emailCtrl.text, passCtrl.text);
+
+                                  if (!mounted) return;
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const HomeScreen()),
+                                  );
+                                } else {
+                                  await AuthService
+                                      .sendOtpForLogin(phoneCtrl.text);
+                                  if (!mounted) return;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => OtpScreen(
+                                        phone: phoneCtrl.text,
+                                        isRegister: false,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                _showError(context, e.toString());
+                              } finally {
+                                if (mounted) setState(() => loading = false);
+                              }
+                            },
+                      child: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Đăng nhập',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const RegisterScreen()),
+                    ),
+                    child: const Text('Chưa có tài khoản? Đăng ký ngay'),
+                  )
+                ]),
+              ),
+            ),
           ),
-          BoxShadow(
-            color: Colors.white,
-            blurRadius: 8,
-            offset: Offset(-2, -2),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.grey[600]),
-          hintText: hint,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         ),
       ),
     );
