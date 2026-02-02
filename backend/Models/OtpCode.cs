@@ -1,19 +1,25 @@
-using System;
+using System.ComponentModel.DataAnnotations;
 
-namespace Backend.Models
+namespace Backend.Models;
+
+public class OtpCode
 {
-    public class OtpCode
-    {
-        public int Id { get; set; }
+    [Key]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-        public string PhoneNumber { get; set; } = null!;
+    [Required, MaxLength(20)]
+    public string PhoneNumber { get; set; } = "";
 
-        public string Code { get; set; } = null!;
+    [Required, MaxLength(10)]
+    public string Code { get; set; } = "";
 
-        public DateTime ExpiredAt { get; set; }
+    // Register | Login | ResetPassword
+    [Required, MaxLength(20)]
+    public string Purpose { get; set; } = "Register";
 
-        public bool IsUsed { get; set; } = false;
+    public DateTime ExpiredAt { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    }
+    public bool IsUsed { get; set; } = false;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
