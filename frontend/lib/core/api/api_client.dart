@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://localhost:5074';
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      return 'http://192.168.1.12:5074';
+    }
+    return 'http://localhost:5074';
+  }
 
   static Future<Map<String, String>> _headers({bool auth = false}) async {
     final headers = {
@@ -68,5 +74,29 @@ class ApiClient {
       Uri.parse('$baseUrl$path'),
       headers: headers,
     );
+  }
+
+  static Future<http.Response> multipart(
+    String path, {
+    required List<http.MultipartFile> files,
+    Map<String, String>? fields,
+    bool auth = false,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl$path'),
+    );
+    if (auth) {
+      final token = await TokenStorage.getToken();
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+    }
+    if (fields != null) {
+      request.fields.addAll(fields);
+    }
+    request.files.addAll(files);
+    final streamed = await request.send();
+    return http.Response.fromStream(streamed);
   }
 }

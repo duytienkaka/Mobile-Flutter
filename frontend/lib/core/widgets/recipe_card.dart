@@ -34,11 +34,11 @@ class RecipeCard extends StatelessWidget {
 						color: AppColors.surface,
 						borderRadius: BorderRadius.circular(16),
 						border: Border.all(color: AppColors.border),
-						boxShadow: const [
+						boxShadow: [
 							BoxShadow(
 								color: AppColors.shadow,
 								blurRadius: 8,
-								offset: Offset(0, 6),
+								offset: const Offset(0, 6),
 							),
 						],
 					),
@@ -58,7 +58,7 @@ class RecipeCard extends StatelessWidget {
 							if (category != null)
 								Text(category!,
 										style:
-												const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+												TextStyle(fontSize: 11, color: AppColors.textMuted)),
 							if (category != null) const SizedBox(height: 2),
 							Text(
 								title,
@@ -87,18 +87,18 @@ class RecipeCard extends StatelessWidget {
 							const Spacer(),
 							Row(
 								children: [
-									const Icon(Icons.access_time,
+									Icon(Icons.access_time,
 											size: 12, color: AppColors.textMuted),
 									const SizedBox(width: 4),
 									Text(time,
-											style: const TextStyle(
+											style: TextStyle(
 													fontSize: 10, color: AppColors.textMuted)),
 									const SizedBox(width: 12),
-									const Icon(Icons.list_alt,
+									Icon(Icons.list_alt,
 											size: 12, color: AppColors.textMuted),
 									const SizedBox(width: 4),
 									Text('$count',
-											style: const TextStyle(
+											style: TextStyle(
 													fontSize: 10, color: AppColors.textMuted)),
 								],
 							)

@@ -132,3 +132,4 @@ D:\Mobile-Flutter\backend\obj\Debug\net10.0\refint\backend.dll
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\backend.pdb
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\backend.genruntimeconfig.cache
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\ref\backend.dll
+D:\Mobile-Flutter\backend\bin\Debug\net10.0\backend.staticwebassets.runtime.json

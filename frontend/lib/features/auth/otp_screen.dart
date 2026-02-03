@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/top_snackbar.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../home/home_screen.dart';
 import 'dart:async';
 
@@ -28,6 +29,14 @@ class _OtpScreenState extends State<OtpScreen> {
   int _remainingSeconds = 30;
   Timer? _timer;
 
+  final AppColorScheme _colors = AppColors.light;
+
+  TextStyle get _titleStyle => TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: _colors.textPrimary,
+      );
+
   @override
   void dispose() {
     otpCtrl.dispose();
@@ -37,8 +46,10 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Scaffold(
+        body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -52,7 +63,7 @@ class _OtpScreenState extends State<OtpScreen> {
             width: 360,
             child: Card(
               elevation: 12,
-              shadowColor: AppColors.shadow,
+              shadowColor: _colors.shadow,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               child: Padding(
@@ -64,17 +75,17 @@ class _OtpScreenState extends State<OtpScreen> {
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () => Navigator.pop(context),
                       ),
-                      const Text('Quay lại',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text(context.tr('Quay lại'),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text('Xác thực OTP', style: AppTextStyles.title),
+                  Text(context.tr('Xác thực OTP'), style: _titleStyle),
                   const SizedBox(height: 6),
                   Text(
-                    'Mã xác thực đã được gửi đến số điện thoại\n${widget.phone}',
+                    '${context.tr('Mã xác thực đã được gửi đến số điện thoại')}\n${widget.phone}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: _colors.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -84,10 +95,10 @@ class _OtpScreenState extends State<OtpScreen> {
                       counterText: '',
                       hintText: '••••••',
                       filled: true,
-                      fillColor: AppColors.surface,
+                      fillColor: _colors.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: BorderSide(color: _colors.border),
                       ),
                     ),
                     keyboardType: TextInputType.number,
@@ -99,14 +110,14 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('Mã hết hạn sau ${_remainingSeconds}s',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    Text('${context.tr('Mã hết hạn sau')} ${_remainingSeconds}s',
+                      style: TextStyle(color: _colors.textMuted, fontSize: 12)),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: _colors.primary,
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -149,21 +160,22 @@ class _OtpScreenState extends State<OtpScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Xác nhận',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          : Text(context.tr('Xác nhận'),
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text('Không nhận được mã? Liên hệ hỗ trợ',
+                      Text(context.tr('Không nhận được mã? Liên hệ hỗ trợ'),
                       style:
-                          TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          TextStyle(color: _colors.textSecondary, fontSize: 12)),
                 ]),
               ),
             ),
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   @override

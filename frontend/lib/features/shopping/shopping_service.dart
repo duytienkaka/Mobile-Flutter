@@ -151,8 +151,8 @@ class ShoppingService extends ChangeNotifier {
 					: double.tryParse(item['quantity'].toString()) ?? 1,
 			unit: (item['unit'] ?? '').toString(),
 			source: ShoppingSource.suggested,
-			groupTitle: 'To Buy',
-			sourceDetail: 'Manual',
+			groupTitle: 'Cần mua',
+			sourceDetail: 'Thủ công',
 			isChecked: item['isChecked'] == true,
 		);
 	}

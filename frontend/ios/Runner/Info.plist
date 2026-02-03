@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Cho phép truy cập camera để chụp ảnh đại diện.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Cho phép truy cập thư viện ảnh để chọn ảnh đại diện.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Cho phép lưu ảnh đã chọn.</string>
 </dict>
 </plist>

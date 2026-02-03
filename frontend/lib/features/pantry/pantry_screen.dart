@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
@@ -27,10 +28,11 @@ class PantryScreen extends StatelessWidget {
 			appBar: AppBar(
 				backgroundColor: AppColors.background,
 				automaticallyImplyLeading: false,
-				title: Text('Pantry', style: AppTextStyles.title),
+				title: Text(context.tr('Kho thực phẩm'), style: AppTextStyles.title),
 			),
 			body: Center(
-				child: Text('Pantry Screen', style: AppTextStyles.subtitle),
+				child: Text(context.tr('Màn hình kho thực phẩm'),
+						style: AppTextStyles.subtitle),
 			),
 		);
 	}

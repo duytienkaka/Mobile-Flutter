@@ -56,6 +56,8 @@ var app = builder.Build();
 // CORS should run before auth so preflight passes
 app.UseCors("DevCors");
 
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

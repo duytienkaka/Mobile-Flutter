@@ -4,11 +4,13 @@ import 'package:frontend/features/recipe/recipe_screen.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../core/l10n/app_localizations.dart';
 import '../features/notification/notification_screen.dart';
 import '../features/pantry/pantry_screen.dart';
+import '../features/pantry/pantry_service.dart';
 import '../features/shopping/shopping_screen.dart';
 import '../features/navigation/main_bottom_nav.dart';
-import '../features/recipe/recipe_screen.dart';
+import '../features/settings/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,11 +21,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? fullName;
+  final PantryService _pantryService = PantryService.instance;
+  int _expiringSoonCount = 0;
+  int _expiredCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadNameFromToken();
+    _pantryService.addListener(_onPantryChanged);
+    _pantryService.loadItems();
+  }
+
+  @override
+  void dispose() {
+    _pantryService.removeListener(_onPantryChanged);
+    super.dispose();
+  }
+
+  void _onPantryChanged() {
+    if (!mounted) return;
+    setState(() {
+      _expiringSoonCount = _pantryService.expiringSoonCount;
+      _expiredCount = _pantryService.expiredCount;
+    });
   }
 
   Future<void> _loadNameFromToken() async {
@@ -81,7 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildHeader(fullName),
               const SizedBox(height: 20),
-              Text('Recipes you can make', style: AppTextStyles.subtitle),
+                Text(context.tr('Món bạn có thể nấu'),
+                  style: AppTextStyles.subtitle),
               const SizedBox(height: 12),
               SizedBox(
                 height: 230,
@@ -140,8 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Expanded(
                     child: _buildStatCard(
-                      label: 'Sắp hết hạn',
-                      value: '0',
+                      label: context.tr('Sắp hết hạn'),
+                      value: '$_expiringSoonCount',
                       background: AppColors.surfaceSoft,
                       icon: Icons.warning_amber_rounded,
                       iconColor: AppColors.warning,
@@ -150,8 +172,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: _buildStatCard(
-                      label: 'Đã hết hạn',
-                      value: '0',
+                      label: context.tr('Đã hết hạn'),
+                      value: '$_expiredCount',
                       background: AppColors.surface,
                       icon: Icons.error_outline,
                       iconColor: AppColors.danger,
@@ -160,22 +182,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Text('Mẹo bảo quản thực phẩm (Daily Tips)',
+                Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
                   style: AppTextStyles.subtitle),
               const SizedBox(height: 12),
               _buildTipCard(
                 icon: Icons.eco_outlined,
-                title: 'Bảo quản rau xanh',
-                message:
-                    'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.',
+                title: context.tr('Bảo quản rau xanh'),
+                message: context.tr(
+                  'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.'),
                 iconBackground: AppColors.primarySoft,
                 iconColor: AppColors.success,
               ),
               const SizedBox(height: 12),
               _buildTipCard(
                 icon: Icons.set_meal_outlined,
-                title: 'Giữ thịt tươi lâu',
-                message: 'Chia nhỏ thịt trước khi cấp đông để dễ dùng.',
+                title: context.tr('Giữ thịt tươi lâu'),
+                message: context.tr(
+                  'Chia nhỏ thịt trước khi cấp đông để dễ dùng.'),
                 iconBackground: AppColors.surfaceSoft,
                 iconColor: AppColors.warning,
               ),
@@ -188,11 +211,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
-      ? 'Hello' : 'Hello $name';
+      ? context.tr('Xin chào')
+      : '${context.tr('Xin chào')} $name';
 
     return Row(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 22,
           backgroundColor: AppColors.primarySoft,
           child: Icon(Icons.person, color: AppColors.surface),
@@ -202,14 +226,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(displayName, style: AppTextStyles.subtitle),
+                Text(displayName, style: AppTextStyles.subtitle),
               const SizedBox(height: 4),
-              Text('Welcome back', style: AppTextStyles.caption),
+                Text(context.tr('Chào mừng trở lại'),
+                  style: AppTextStyles.caption),
             ],
           ),
         ),
         IconButton(
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          ),
           icon: const Icon(Icons.settings),
         ),
       ],
@@ -231,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
             blurRadius: 12,
@@ -281,12 +308,12 @@ class _HomeScreenState extends State<HomeScreen> {
             const Spacer(),
             Row(
               children: [
-                const Icon(Icons.access_time,
+                Icon(Icons.access_time,
                   size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(time, style: AppTextStyles.caption),
                 const SizedBox(width: 12),
-                const Icon(Icons.list_alt,
+                Icon(Icons.list_alt,
                   size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(count, style: AppTextStyles.caption),

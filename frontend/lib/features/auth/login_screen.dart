@@ -3,9 +3,10 @@ import 'auth_service.dart';
 import '../auth/register_screen.dart';
 import '../auth/otp_screen.dart';
 import '../../home/home_screen.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/top_snackbar.dart';
+import '../../core/l10n/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,11 +18,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool isEmail = true;
 
+  final AppColorScheme _colors = AppColors.light;
+
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
   static const _tabAnimDuration = Duration(milliseconds: 350);
   bool loading = false;
+
+  TextStyle get _titleStyle => TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: _colors.textPrimary,
+      );
+
 
   void _showError(BuildContext context, String message) {
     final text = message.replaceAll('Exception: ', '').trim();
@@ -40,14 +50,14 @@ class _LoginScreenState extends State<LoginScreen> {
           duration: _tabAnimDuration,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.surfaceSoft,
+            color: selected ? _colors.primary : _colors.surfaceSoft,
             borderRadius: BorderRadius.circular(12),
             boxShadow: selected
                 ? [
-                    const BoxShadow(
-                      color: AppColors.shadow,
+                    BoxShadow(
+                      color: _colors.shadow,
                       blurRadius: 6,
-                      offset: Offset(0, 3),
+                      offset: const Offset(0, 3),
                     )
                   ]
                 : null,
@@ -57,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.black : AppColors.textSecondary,
+                color: selected ? Colors.black : _colors.textSecondary,
               ),
             ),
           ),
@@ -68,8 +78,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-      return Scaffold(
-        body: Container(
+      return Theme(
+        data: AppTheme.lightTheme,
+        child: Scaffold(
+          body: Container(
           width: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -83,34 +95,34 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 360,
               child: Card(
                 elevation: 12,
-                shadowColor: AppColors.shadow,
+                shadowColor: _colors.shadow,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Đăng nhập', style: AppTextStyles.title),
+                    Text(context.tr('Đăng nhập'), style: _titleStyle),
                     const SizedBox(height: 6),
-                    const Text('Chào mừng bạn quay trở lại!',
-                        style: TextStyle(color: AppColors.textSecondary)),
+                    Text(context.tr('Chào mừng bạn quay trở lại!'),
+                        style: TextStyle(color: _colors.textSecondary)),
 
                     const SizedBox(height: 20),
 
                     Container(
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceSoft,
+                        color: _colors.surfaceSoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       padding: const EdgeInsets.all(4),
                       child: Row(children: [
                         _buildTab(
-                          label: 'Email',
+                          label: context.tr('Email'),
                           selected: isEmail,
                           onTap: () => setState(() => isEmail = true),
                         ),
                         const SizedBox(width: 6),
                         _buildTab(
-                          label: 'Số điện thoại',
+                          label: context.tr('Số điện thoại'),
                           selected: !isEmail,
                           onTap: () => setState(() => isEmail = false),
                         ),
@@ -120,34 +132,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 18),
 
                     if (isEmail) ...[
-                      _buildInputLabel('Email'),
+                      _buildInputLabel(context.tr('Email')),
                       const SizedBox(height: 6),
                       TextField(
                         controller: emailCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Email',
-                          prefixIcon: Icon(Icons.mail),
+                        decoration: InputDecoration(
+                          hintText: context.tr('Email'),
+                          prefixIcon: const Icon(Icons.mail),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildInputLabel('Password'),
+                      _buildInputLabel(context.tr('Password')),
                       const SizedBox(height: 6),
                       TextField(
                         controller: passCtrl,
                         obscureText: true,
-                        decoration: const InputDecoration(
-                          hintText: 'Password',
-                          prefixIcon: Icon(Icons.lock),
+                        decoration: InputDecoration(
+                          hintText: context.tr('Password'),
+                          prefixIcon: const Icon(Icons.lock),
                         ),
                       ),
                     ] else ...[
-                      _buildInputLabel('Số điện thoại'),
+                      _buildInputLabel(context.tr('Số điện thoại')),
                       const SizedBox(height: 6),
                       TextField(
                         controller: phoneCtrl,
-                        decoration: const InputDecoration(
-                          hintText: 'Số điện thoại',
-                          prefixIcon: Icon(Icons.phone),
+                        decoration: InputDecoration(
+                          hintText: context.tr('Số điện thoại'),
+                          prefixIcon: const Icon(Icons.phone),
                         ),
                       ),
                     ],
@@ -158,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: _colors.primary,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -173,12 +185,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (isEmail) {
           if (email.isEmpty || pass.isEmpty) {
-            _showError(context, 'Cần điền đầy đủ thông tin');
+            _showError(context, context.tr('Cần điền đầy đủ thông tin'));
             return;
           }
         } else {
           if (phone.isEmpty) {
-            _showError(context, 'Cần điền đầy đủ thông tin');
+            _showError(context, context.tr('Cần điền đầy đủ thông tin'));
             return;
           }
         }
@@ -207,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
         } catch (e) {
           if (!mounted) return;
           _showError(context, isEmail
-              ? 'Tài khoản hoặc mật khẩu không đúng.'
+              ? context.tr('Tài khoản hoặc mật khẩu không đúng.')
               : e.toString());
         } finally {
           if (mounted) setState(() => loading = false);
@@ -219,8 +231,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Đăng nhập',
-                                style: TextStyle(fontWeight: FontWeight.w600)),
+                            : Text(context.tr('Đăng nhập'),
+                                style: const TextStyle(fontWeight: FontWeight.w600)),
                       ),
                     ),
 
@@ -237,8 +249,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      child: const Text('Chưa có tài khoản? Đăng ký ngay',
-                          style: TextStyle(color: AppColors.textSecondary)),
+                      child: Text(context.tr('Chưa có tài khoản? Đăng ký ngay'),
+                          style: TextStyle(color: _colors.textSecondary)),
                     )
                   ]),
                 ),
@@ -246,7 +258,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
     Widget _buildInputLabel(String text) {
@@ -254,10 +267,10 @@ class _LoginScreenState extends State<LoginScreen> {
         alignment: Alignment.centerLeft,
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
+            color: _colors.textSecondary,
           ),
         ),
       );

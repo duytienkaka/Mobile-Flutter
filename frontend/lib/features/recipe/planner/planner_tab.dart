@@ -5,11 +5,14 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/tab_filter_pill.dart';
 import '../../../core/widgets/top_snackbar.dart';
+import '../../../core/l10n/app_localizations.dart';
 import 'planner_service.dart';
 import 'planner_widgets.dart';
 
 class PlannerTab extends StatefulWidget {
-	const PlannerTab({super.key});
+	final bool scrollable;
+
+	const PlannerTab({super.key, this.scrollable = true});
 
 	@override
 	State<PlannerTab> createState() => _PlannerTabState();
@@ -66,7 +69,11 @@ class _PlannerTabState extends State<PlannerTab> {
 			if (entry == null) {
 				await service.createPlan(result);
 				if (!mounted) return;
-				showTopSnackBar(context, 'Đã thêm kế hoạch.', isError: false);
+				showTopSnackBar(
+					context,
+					context.tr('Đã thêm kế hoạch.'),
+					isError: false,
+				);
 			} else {
 				await service.updatePlan(result);
 			}
@@ -84,16 +91,16 @@ class _PlannerTabState extends State<PlannerTab> {
 		final confirmed = await showDialog<bool>(
 			context: context,
 			builder: (context) => AlertDialog(
-				title: const Text('Xoá kế hoạch'),
-				content: const Text('Bạn chắc chắn muốn xoá món này?'),
+				title: Text(context.tr('Xoá kế hoạch')),
+				content: Text(context.tr('Bạn chắc chắn muốn xoá món này?')),
 				actions: [
 					TextButton(
 						onPressed: () => Navigator.pop(context, false),
-						child: const Text('Huỷ'),
+						child: Text(context.tr('Huỷ')),
 					),
 					TextButton(
 						onPressed: () => Navigator.pop(context, true),
-						child: const Text('Xoá'),
+						child: Text(context.tr('Xoá')),
 					),
 				],
 			),
@@ -138,9 +145,9 @@ class _PlannerTabState extends State<PlannerTab> {
 	Widget _buildDayPlans(DateTime date) {
 		final plans = service.entriesForDate(date);
 		if (plans.isEmpty) {
-			return const EmptyState(
-				title: 'Chưa có kế hoạch',
-				message: 'Thêm món ăn cho ngày này để bắt đầu.',
+			return EmptyState(
+				title: context.tr('Chưa có kế hoạch'),
+				message: context.tr('Thêm món ăn cho ngày này để bắt đầu.'),
 				icon: Icons.event_note,
 			);
 		}
@@ -177,7 +184,7 @@ class _PlannerTabState extends State<PlannerTab> {
 							const SizedBox(height: 10),
 							if (plans.isEmpty)
 								Text(
-									'Chưa có kế hoạch',
+									context.tr('Chưa có kế hoạch'),
 									style: AppTextStyles.caption,
 								),
 							...plans.map(
@@ -201,17 +208,14 @@ class _PlannerTabState extends State<PlannerTab> {
 	@override
 	Widget build(BuildContext context) {
 		final days = service.daysOfWeek(weekStart);
-		return SafeArea(
-			child: SingleChildScrollView(
-				padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-				child: Column(
-					crossAxisAlignment: CrossAxisAlignment.start,
-					children: [
+		final content = Column(
+			crossAxisAlignment: CrossAxisAlignment.start,
+			children: [
 						Row(
 							children: [
 								Expanded(
 									child: Text(
-										'Lịch kế hoạch',
+										context.tr('Lịch kế hoạch'),
 										style: AppTextStyles.title,
 									),
 								),
@@ -248,14 +252,14 @@ class _PlannerTabState extends State<PlannerTab> {
 						Row(
 							children: [
 								TabFilterPill(
-									label: 'Theo ngày',
+									label: context.tr('Theo ngày'),
 									selected: !showWeekView,
 									onTap: () =>
 											setState(() => showWeekView = false),
 								),
 								const SizedBox(width: 8),
 								TabFilterPill(
-									label: 'Theo tuần',
+									label: context.tr('Theo tuần'),
 									selected: showWeekView,
 									onTap: () =>
 											setState(() => showWeekView = true),
@@ -264,8 +268,22 @@ class _PlannerTabState extends State<PlannerTab> {
 						),
 						const SizedBox(height: 16),
 						if (showWeekView) _buildWeekPlans() else _buildDayPlans(selectedDate),
-					],
+			],
+		);
+
+		if (!widget.scrollable) {
+			return SafeArea(
+				child: Padding(
+					padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+					child: content,
 				),
+			);
+		}
+
+		return SafeArea(
+			child: SingleChildScrollView(
+				padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+				child: content,
 			),
 		);
 	}

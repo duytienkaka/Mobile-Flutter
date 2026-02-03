@@ -22,6 +22,9 @@ public class User
     public bool IsEmailVerified { get; set; } = false;
     public bool IsPhoneVerified { get; set; } = false;
 
+    [MaxLength(400)]
+    public string? AvatarUrl { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation
