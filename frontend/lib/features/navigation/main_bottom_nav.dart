@@ -40,7 +40,7 @@ class MainBottomBar extends StatelessWidget {
 	});
 
 	Color _colorFor(int index) {
-		return currentIndex == index ? AppColors.black : AppColors.textMuted;
+		return currentIndex == index ? AppColors.textPrimary : AppColors.textSecondary;
 	}
 
 	@override

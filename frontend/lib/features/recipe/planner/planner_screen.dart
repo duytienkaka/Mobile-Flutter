@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/l10n/app_localizations.dart';
 import 'planner_tab.dart';
 
 class PlannerScreen extends StatelessWidget {
@@ -17,7 +18,7 @@ class PlannerScreen extends StatelessWidget {
 					onPressed: () => Navigator.pop(context),
 					icon: const Icon(Icons.arrow_back),
 				),
-				title: Text('Planner', style: AppTextStyles.title),
+				title: Text(context.tr('Kế hoạch'), style: AppTextStyles.title),
 			),
 			body: const PlannerTab(),
 		);

@@ -66,7 +66,7 @@ class IngredientCard extends StatelessWidget {
 									const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
 					const SizedBox(height: 4),
 					Text(expiry,
-							style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+						style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
 				],
 			),
 		);

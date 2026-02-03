@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../l10n/app_localizations.dart';
 
 class AppSearchBar extends StatelessWidget {
-  final String hintText;
+  final String? hintText;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onFilterTap;
   final TextEditingController? controller;
 
   const AppSearchBar({
     super.key,
-    this.hintText = 'Search',
+    this.hintText,
     this.onChanged,
     this.onFilterTap,
     this.controller,
@@ -24,7 +25,7 @@ class AppSearchBar extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             decoration: InputDecoration(
-              hintText: hintText,
+              hintText: hintText ?? context.tr('Tìm kiếm'),
               prefixIcon: const Icon(Icons.search),
               fillColor: AppColors.surface,
             ),

@@ -73,7 +73,9 @@ class _TopSnackBarState extends State<_TopSnackBar>
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top + 12;
-    final bg = widget.isError ? AppColors.black : AppColors.textPrimary;
+    final bg = widget.isError ? AppColors.danger : AppColors.primary;
+    final fg = widget.isError ? Colors.white : AppColors.black;
+    final icon = widget.isError ? Icons.error_outline : Icons.check_circle_outline;
 
     return Positioned(
       top: top,
@@ -88,23 +90,23 @@ class _TopSnackBarState extends State<_TopSnackBar>
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
                   color: AppColors.shadow,
                   blurRadius: 8,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 )
               ],
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 18),
+                Icon(icon, color: fg, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     widget.message,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: fg,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),

@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/top_snackbar.dart';
+import '../../../core/l10n/app_localizations.dart';
 import 'planner_service.dart';
 
 class WeekDayChip extends StatelessWidget {
@@ -17,38 +18,62 @@ class WeekDayChip extends StatelessWidget {
 		required this.onTap,
 	});
 
-	static const _dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+	static const _dayLabelsVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+	static const _dayLabelsEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 	@override
 	Widget build(BuildContext context) {
-		final label = _dayLabels[date.weekday - 1];
+		final isEn = Localizations.localeOf(context).languageCode == 'en';
+		final labels = isEn ? _dayLabelsEn : _dayLabelsVi;
+		final label = labels[date.weekday - 1];
 		return GestureDetector(
 			onTap: onTap,
 			child: AnimatedContainer(
 				duration: const Duration(milliseconds: 200),
+				constraints: const BoxConstraints(minWidth: 64),
 				padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
 				decoration: BoxDecoration(
-					color: selected ? AppColors.primary : AppColors.surface,
-					borderRadius: BorderRadius.circular(14),
-					border: Border.all(color: AppColors.border),
+					color: selected ? AppColors.primarySoft : AppColors.surface,
+					borderRadius: BorderRadius.circular(18),
+					border: Border.all(
+						color: selected ? AppColors.primary : AppColors.border,
+						width: selected ? 1.2 : 1,
+					),
 				),
-				child: Column(
+				child: Row(
 					mainAxisSize: MainAxisSize.min,
 					children: [
-						Text(
-							label,
-							style: AppTextStyles.caption.copyWith(
-								color:
-										selected ? AppColors.black : AppColors.textSecondary,
+						AnimatedContainer(
+							duration: const Duration(milliseconds: 200),
+							width: 8,
+							height: 8,
+							decoration: BoxDecoration(
+								shape: BoxShape.circle,
+								color: selected
+										? AppColors.primary
+										: AppColors.surfaceSoft,
 							),
 						),
-						const SizedBox(height: 4),
-						Text(
-							'${date.day}',
-							style: AppTextStyles.subtitle.copyWith(
-								color:
-										selected ? AppColors.black : AppColors.textPrimary,
-							),
+						const SizedBox(width: 8),
+						Column(
+							mainAxisSize: MainAxisSize.min,
+							crossAxisAlignment: CrossAxisAlignment.start,
+							children: [
+								Text(
+									label,
+									style: AppTextStyles.caption.copyWith(
+										fontWeight: FontWeight.w700,
+										color: AppColors.textMuted,
+									),
+								),
+								const SizedBox(height: 2),
+								Text(
+									'${date.day}',
+									style: AppTextStyles.subtitle.copyWith(
+										color: AppColors.textPrimary,
+									),
+								),
+							],
 						),
 					],
 				),
@@ -95,7 +120,7 @@ class MealPlanCard extends StatelessWidget {
 									Text(entry.recipeName, style: AppTextStyles.subtitle),
 									const SizedBox(height: 4),
 									Text(
-										'${entry.servings} suất',
+										'${entry.servings} ${context.tr('suất')}',
 										style: AppTextStyles.caption,
 									),
 									if (entry.note != null && entry.note!.trim().isNotEmpty)
@@ -182,7 +207,11 @@ class _PlannerEntrySheetState extends State<PlannerEntrySheet> {
 	void _submit() {
 		final name = recipeCtrl.text.trim();
 		if (name.isEmpty) {
-			showTopSnackBar(context, 'Vui lòng nhập tên món ăn.', isError: true);
+			showTopSnackBar(
+				context,
+				context.tr('Vui lòng nhập tên món ăn.'),
+				isError: true,
+			);
 			return;
 		}
 		final servings = int.tryParse(servingsCtrl.text.trim()) ?? 1;
@@ -212,11 +241,13 @@ class _PlannerEntrySheetState extends State<PlannerEntrySheet> {
 				crossAxisAlignment: CrossAxisAlignment.start,
 				children: [
 					Text(
-						isEdit ? 'Sửa kế hoạch' : 'Thêm kế hoạch',
+						isEdit
+								? context.tr('Sửa kế hoạch')
+								: context.tr('Thêm kế hoạch'),
 						style: AppTextStyles.title,
 					),
 					const SizedBox(height: 16),
-					Text('Ngày', style: AppTextStyles.caption),
+					Text(context.tr('Ngày'), style: AppTextStyles.caption),
 					const SizedBox(height: 6),
 					InkWell(
 						onTap: _pickDate,
@@ -243,7 +274,7 @@ class _PlannerEntrySheetState extends State<PlannerEntrySheet> {
 						),
 					),
 					const SizedBox(height: 12),
-					Text('Bữa ăn', style: AppTextStyles.caption),
+					Text(context.tr('Bữa ăn'), style: AppTextStyles.caption),
 					const SizedBox(height: 6),
 					Container(
 						padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -273,26 +304,26 @@ class _PlannerEntrySheetState extends State<PlannerEntrySheet> {
 					const SizedBox(height: 12),
 					TextField(
 						controller: recipeCtrl,
-						decoration: const InputDecoration(
-							labelText: 'Tên món ăn',
-							hintText: 'Ví dụ: Cơm gà',
+						decoration: InputDecoration(
+							labelText: context.tr('Tên món ăn'),
+							hintText: context.tr('Ví dụ: Cơm gà'),
 						),
 					),
 					const SizedBox(height: 12),
 					TextField(
 						controller: servingsCtrl,
 						keyboardType: TextInputType.number,
-						decoration: const InputDecoration(
-							labelText: 'Số suất',
+						decoration: InputDecoration(
+							labelText: context.tr('Số suất'),
 						),
 					),
 					const SizedBox(height: 12),
 					TextField(
 						controller: noteCtrl,
 						maxLines: 2,
-						decoration: const InputDecoration(
-							labelText: 'Ghi chú',
-							hintText: 'Ghi chú thêm nếu cần',
+						decoration: InputDecoration(
+							labelText: context.tr('Ghi chú'),
+							hintText: context.tr('Ghi chú thêm nếu cần'),
 						),
 					),
 					const SizedBox(height: 18),
@@ -301,13 +332,15 @@ class _PlannerEntrySheetState extends State<PlannerEntrySheet> {
 							Expanded(
 								child: OutlinedButton(
 									onPressed: () => Navigator.pop(context),
-									child: const Text('Huỷ'),
+									child: Text(context.tr('Huỷ')),
 								),
 							),
 							const SizedBox(width: 12),
 							Expanded(
 								child: PrimaryButton(
-									label: isEdit ? 'Lưu thay đổi' : 'Thêm món',
+									label: isEdit
+											? context.tr('Lưu thay đổi')
+											: context.tr('Thêm món'),
 									onPressed: _submit,
 								),
 							),
