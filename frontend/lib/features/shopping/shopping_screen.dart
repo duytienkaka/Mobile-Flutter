@@ -8,7 +8,8 @@ import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../recipe/recipe_screen.dart';
-import 'shopping_item_model.dart';
+import 'shopping_list_detail_screen.dart';
+import 'shopping_list_model.dart';
 import 'shopping_service.dart';
 
 class ShoppingScreen extends StatefulWidget {
@@ -20,13 +21,12 @@ class ShoppingScreen extends StatefulWidget {
 
 class _ShoppingScreenState extends State<ShoppingScreen> {
   final ShoppingService service = ShoppingService.instance;
-  bool showCompleted = true;
 
   @override
   void initState() {
     super.initState();
     service.addListener(_onChanged);
-    service.loadItems();
+    service.loadLists();
   }
 
   @override
@@ -41,15 +41,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasItems = service.items.isNotEmpty;
-    final toBuyGroups = service.groupedItems(completed: false);
-    final completedGroups = service.groupedItems(completed: true);
-    final showToBuyGroupHeader = toBuyGroups.length > 1;
-    final showCompletedGroupHeader = completedGroups.length > 1;
-    final completedCount = completedGroups.values.fold<int>(
-      0,
-      (sum, list) => sum + list.length,
-    );
+    final lists = service.lists;
+    final hasLists = lists.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -64,127 +57,100 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
         onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: hasItems
+        child: hasLists
             ? ListView(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 children: [
                   Row(
                     children: [
                       Expanded(
-                        child: Text(context.tr('Danh sách mua sắm'),
-                            style: AppTextStyles.title),
+                        child: Text(
+                          context.tr('Danh sách mua sắm'),
+                          style: AppTextStyles.title,
+                        ),
                       ),
                       IconButton(
-                      onPressed: _openAddItemSheet,
+                        onPressed: _openAddListSheet,
                         icon: const Icon(Icons.add),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(context.tr('Cần mua'), style: AppTextStyles.subtitle),
-                  const SizedBox(height: 10),
-                  ...toBuyGroups.entries.expand(
-                    (group) => [
-                      if (showToBuyGroupHeader)
-                        Text(context.tr(group.key),
-                            style: AppTextStyles.subtitle),
-                      if (showToBuyGroupHeader) const SizedBox(height: 8),
-                      ...group.value.map(_buildItemTile),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => showCompleted = !showCompleted),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${context.tr('Đã hoàn thành')} ($completedCount ${context.tr('món')})',
-                            style: AppTextStyles.subtitle,
-                          ),
-                        ),
-                        Icon(
-                          showCompleted
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (showCompleted)
-                    ...completedGroups.entries.expand(
-                      (group) => [
-                        if (showCompletedGroupHeader)
-                          Text(context.tr(group.key),
-                              style: AppTextStyles.subtitle),
-                        if (showCompletedGroupHeader) const SizedBox(height: 8),
-                        ...group.value.map(_buildItemTile),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
+                  ...lists.map(_buildListTile),
                 ],
               )
             : EmptyState(
-                title: context.tr('Danh sách trống'),
-                message: context.tr('Nhấn dấu + để thêm món thủ công vào danh sách.'),
+                title: context.tr('Chưa có danh sách'),
+                message: context.tr('Nhấn dấu + để tạo danh sách mua sắm.'),
                 icon: Icons.shopping_cart_outlined,
-                actionLabel: context.tr('Thêm món'),
-                onAction: _openAddItemSheet,
+                actionLabel: context.tr('Tạo danh sách'),
+                onAction: _openAddListSheet,
               ),
       ),
     );
   }
 
-  Future<void> _openAddItemSheet() async {
+  Future<void> _openAddListSheet() async {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _AddShoppingItemSheet(
-        service: service,
+      builder: (_) => _AddShoppingListSheet(service: service),
+    );
+  }
+
+  Widget _buildListTile(ShoppingListModel list) {
+    final dateText = _formatDate(list.planDate);
+    final doneText =
+        '${list.completedCount}/${list.itemCount} ${context.tr('Đã hoàn thành')}';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: InkWell(
+        onTap: () => _openListDetail(list),
+        child: Row(
+          children: [
+            Icon(Icons.event_note, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(list.name, style: AppTextStyles.subtitle),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$dateText • ${list.itemCount} ${context.tr('món')} • $doneText',
+                    style: AppTextStyles.caption,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textMuted),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildItemTile(ShoppingItemModel item) {
-    final textStyle = item.isChecked
-        ? AppTextStyles.subtitle.copyWith(
-            decoration: TextDecoration.lineThrough,
-            color: AppColors.textMuted,
-          )
-        : AppTextStyles.subtitle;
+  String _formatDate(DateTime date) {
+    final d = date.toLocal();
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+    final year = d.year.toString();
+    return '$day/$month/$year';
+  }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Checkbox(
-            value: item.isChecked,
-            onChanged: (value) =>
-                service.toggleChecked(item.id, value ?? false),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${item.name} - ${item.quantity} ${item.unit}',
-                  style: textStyle,
-                ),
-                const SizedBox(height: 4),
-                Text(context.tr(item.sourceDetail),
-                  style: AppTextStyles.caption),
-                Divider(height: 16, color: AppColors.border),
-              ],
-            ),
-          ),
-        ],
+  void _openListDetail(ShoppingListModel list) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ShoppingListDetailScreen(list: list),
       ),
     );
   }
@@ -197,50 +163,54 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   }
 }
 
-class _AddShoppingItemSheet extends StatefulWidget {
+class _AddShoppingListSheet extends StatefulWidget {
   final ShoppingService service;
 
-  const _AddShoppingItemSheet({
+  const _AddShoppingListSheet({
     required this.service,
   });
 
   @override
-  State<_AddShoppingItemSheet> createState() => _AddShoppingItemSheetState();
+  State<_AddShoppingListSheet> createState() => _AddShoppingListSheetState();
 }
 
-class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
+class _AddShoppingListSheetState extends State<_AddShoppingListSheet> {
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _qtyCtrl;
-  late final TextEditingController _unitCtrl;
+  DateTime _selectedDate = DateTime.now();
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController();
-    _qtyCtrl = TextEditingController(text: '1');
-    _unitCtrl = TextEditingController(text: 'pcs');
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _qtyCtrl.dispose();
-    _unitCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
-    final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 1;
-    final unit = _unitCtrl.text.trim().isEmpty ? 'pcs' : _unitCtrl.text.trim();
     setState(() => _saving = true);
     try {
-      await widget.service.addManualItem(
+      await widget.service.createList(
         name: name,
-        quantity: qty,
-        unit: unit,
+        planDate: _selectedDate,
       );
       if (!mounted) return;
       Navigator.pop(context);
@@ -251,6 +221,7 @@ class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final dateText = _formatDate(_selectedDate);
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -262,30 +233,19 @@ class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.tr('Thêm món'), style: AppTextStyles.title),
+          Text(context.tr('Tạo danh sách'), style: AppTextStyles.title),
           const SizedBox(height: 12),
           TextField(
             controller: _nameCtrl,
-            decoration: InputDecoration(labelText: context.tr('Tên món')),
+            decoration: InputDecoration(labelText: context.tr('Tên danh sách')),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _qtyCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: context.tr('Số lượng')),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _unitCtrl,
-                  decoration: InputDecoration(labelText: context.tr('Đơn vị')),
-                ),
-              ),
-            ],
+          InkWell(
+            onTap: _saving ? null : _pickDate,
+            child: InputDecorator(
+              decoration: InputDecoration(labelText: context.tr('Chọn ngày')),
+              child: Text(dateText, style: AppTextStyles.subtitle),
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -306,7 +266,7 @@ class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(context.tr('Thêm')),
+                      : Text(context.tr('Tạo')),
                 ),
               ),
             ],
@@ -314,5 +274,13 @@ class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final d = date.toLocal();
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+    final year = d.year.toString();
+    return '$day/$month/$year';
   }
 }

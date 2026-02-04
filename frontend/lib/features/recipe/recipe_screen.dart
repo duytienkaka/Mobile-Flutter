@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../core/widgets/tab_filter_pill.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';

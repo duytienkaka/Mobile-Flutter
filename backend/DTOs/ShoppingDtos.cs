@@ -12,7 +12,26 @@ public class ShoppingItemResponse
 public class ShoppingListResponse
 {
     public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public DateTime PlanDate { get; set; }
+    public bool IsCompleted { get; set; }
     public List<ShoppingItemResponse> Items { get; set; } = new();
+}
+
+public class ShoppingListSummaryResponse
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public DateTime PlanDate { get; set; }
+    public bool IsCompleted { get; set; }
+    public int ItemCount { get; set; }
+    public int CompletedCount { get; set; }
+}
+
+public class ShoppingListCreateRequest
+{
+    public string Name { get; set; } = "";
+    public DateTime PlanDate { get; set; }
 }
 
 public class ShoppingItemCreateRequest

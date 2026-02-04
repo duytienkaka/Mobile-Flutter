@@ -144,6 +144,13 @@ public class AppDbContext : DbContext
         list.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");
 
+        list.Property(x => x.Name)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        list.Property(x => x.PlanDate)
+            .HasColumnType("timestamp with time zone");
+
         // -------- ShoppingItem --------
         var item = modelBuilder.Entity<ShoppingItem>();
 
