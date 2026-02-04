@@ -14,6 +14,11 @@ public class ShoppingList
     [ForeignKey(nameof(UserId))]
     public User User { get; set; } = null!;
 
+    [Required, MaxLength(120)]
+    public string Name { get; set; } = "";
+
+    public DateTime PlanDate { get; set; } = DateTime.UtcNow.Date;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public bool IsCompleted { get; set; } = false;

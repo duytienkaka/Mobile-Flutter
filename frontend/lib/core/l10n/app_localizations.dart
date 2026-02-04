@@ -85,6 +85,13 @@ class AppLocalizations {
     'Danh sách trống': 'List is empty',
     'Nhấn dấu + để thêm món thủ công vào danh sách.':
       'Tap + to add a manual item to the list.',
+    'Chưa có danh sách': 'No lists yet',
+    'Nhấn dấu + để tạo danh sách mua sắm.':
+      'Tap + to create a shopping list.',
+    'Tạo danh sách': 'Create list',
+    'Tên danh sách': 'List name',
+    'Chọn ngày': 'Choose date',
+    'Tạo': 'Create',
     'Thêm món': 'Add item',
     'Tên món': 'Item name',
     'Số lượng': 'Quantity',

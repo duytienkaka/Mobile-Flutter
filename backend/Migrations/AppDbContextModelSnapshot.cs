@@ -243,6 +243,14 @@ namespace backend.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("PlanDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean");
 
