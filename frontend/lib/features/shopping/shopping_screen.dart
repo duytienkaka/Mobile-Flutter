@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/widgets/back_header.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../home/home_screen.dart';
@@ -47,8 +48,9 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton:
-          MainFab(onPressed: () => _openScreen(const PantryScreen())),
+      floatingActionButton: MainFab(
+        onPressed: () => _openScreen(const PantryScreen()),
+      ),
       bottomNavigationBar: MainBottomBar(
         currentIndex: 3,
         onHome: () => _openScreen(const HomeScreen()),
@@ -57,35 +59,53 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
         onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: hasLists
-            ? ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.tr('Danh sách mua sắm'),
-                          style: AppTextStyles.title,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _openAddListSheet,
-                        icon: const Icon(Icons.add),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+              child: BackHeader(
+                title: context.tr('Danh sách mua sắm'),
+                trailing: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadow,
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  ...lists.map(_buildListTile),
-                ],
-              )
-            : EmptyState(
-                title: context.tr('Chưa có danh sách'),
-                message: context.tr('Nhấn dấu + để tạo danh sách mua sắm.'),
-                icon: Icons.shopping_cart_outlined,
-                actionLabel: context.tr('Tạo danh sách'),
-                onAction: _openAddListSheet,
+                  child: IconButton(
+                    onPressed: _openAddListSheet,
+                    icon: const Icon(Icons.add),
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ),
+            ),
+            Expanded(
+              child: hasLists
+                  ? ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      children: [...lists.map(_buildListTile)],
+                    )
+                  : EmptyState(
+                      title: context.tr('Chưa có danh sách'),
+                      message: context.tr(
+                        'Nhấn dấu + để tạo danh sách mua sắm.',
+                      ),
+                      icon: Icons.shopping_cart_outlined,
+                      actionLabel: context.tr('Tạo danh sách'),
+                      onAction: _openAddListSheet,
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -149,26 +169,22 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   void _openListDetail(ShoppingListModel list) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ShoppingListDetailScreen(list: list),
-      ),
+      MaterialPageRoute(builder: (_) => ShoppingListDetailScreen(list: list)),
     );
   }
 
   void _openScreen(Widget screen) {
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }
 }
 
 class _AddShoppingListSheet extends StatefulWidget {
   final ShoppingService service;
 
-  const _AddShoppingListSheet({
-    required this.service,
-  });
+  const _AddShoppingListSheet({required this.service});
 
   @override
   State<_AddShoppingListSheet> createState() => _AddShoppingListSheetState();
@@ -208,10 +224,7 @@ class _AddShoppingListSheetState extends State<_AddShoppingListSheet> {
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      await widget.service.createList(
-        name: name,
-        planDate: _selectedDate,
-      );
+      await widget.service.createList(name: name, planDate: _selectedDate);
       if (!mounted) return;
       Navigator.pop(context);
     } finally {

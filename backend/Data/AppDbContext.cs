@@ -112,6 +112,9 @@ public class AppDbContext : DbContext
             .IsRequired()
             .HasMaxLength(100);
 
+        e.Property(x => x.Category)
+            .HasMaxLength(30);
+
         e.Property(x => x.Unit)
             .HasMaxLength(20);
 

@@ -2966,11 +2966,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\duyti\\OneDrive\\Desktop\\Mobile-Flutter\\backend\\backend.csproj",
+      "projectUniqueName": "D:\\Mobile-Flutter\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "C:\\Users\\duyti\\OneDrive\\Desktop\\Mobile-Flutter\\backend\\backend.csproj",
+      "projectPath": "D:\\Mobile-Flutter\\backend\\backend.csproj",
       "packagesPath": "C:\\Users\\duyti\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\duyti\\OneDrive\\Desktop\\Mobile-Flutter\\backend\\obj\\",
+      "outputPath": "D:\\Mobile-Flutter\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\duyti\\AppData\\Roaming\\NuGet\\NuGet.Config"
