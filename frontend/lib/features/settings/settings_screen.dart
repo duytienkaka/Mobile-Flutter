@@ -10,6 +10,7 @@ import '../../core/l10n/locale_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/widgets/back_header.dart';
 import '../../core/widgets/top_snackbar.dart';
 import '../auth/login_screen.dart';
 import '../navigation/main_bottom_nav.dart';
@@ -70,7 +71,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-
   Future<void> _loadNotificationPreference() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getBool(_notificationKey) ?? true;
@@ -130,7 +130,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _showMessage(String message, {bool isError = false, BuildContext? context}) {
+  void _showMessage(
+    String message, {
+    bool isError = false,
+    BuildContext? context,
+  }) {
     final target = context ?? this.context;
     showTopSnackBar(target, message, isError: isError);
   }
@@ -225,7 +229,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (status.isPermanentlyDenied) {
-      _showMessage(context.tr('Vui lòng cấp quyền thông báo trong cài đặt'), isError: true);
+      _showMessage(
+        context.tr('Vui lòng cấp quyền thông báo trong cài đặt'),
+        isError: true,
+      );
       await openAppSettings();
       return;
     }
@@ -293,11 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(context.tr('Dùng ảnh này?')),
         content: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            File(picked.path),
-            height: 180,
-            fit: BoxFit.cover,
-          ),
+          child: Image.file(File(picked.path), height: 180, fit: BoxFit.cover),
         ),
         actions: [
           TextButton(
@@ -332,10 +335,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _EditNameSheet(
-        title: title,
-        initialValue: fullName ?? '',
-      ),
+      builder: (_) =>
+          _EditNameSheet(title: title, initialValue: fullName ?? ''),
     );
     if (result == null) return;
     try {
@@ -363,20 +364,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context.tr('Đổi mật khẩu thành công'),
           context: rootContext,
         ),
-        onError: (message) => _showMessage(
-          message,
-          isError: true,
-          context: rootContext,
-        ),
+        onError: (message) =>
+            _showMessage(message, isError: true, context: rootContext),
       ),
     );
   }
 
   void _openScreen(Widget screen) {
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
@@ -402,23 +400,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
           children: [
-            Row(
-              children: [
-                Text(
-                  context.tr('Cài đặt'),
-                  style: AppTextStyles.title.copyWith(fontSize: 26),
-                ),
-                const Spacer(),
-                GestureDetector(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+              child: BackHeader(
+                title: context.tr('Cài đặt'),
+                trailing: GestureDetector(
                   onTap: _openAvatarPicker,
                   child: CircleAvatar(
                     radius: 18,
                     backgroundColor: AppColors.primarySoft,
-                    backgroundImage:
-                        avatarImage != null ? NetworkImage(avatarImage) : null,
+                    backgroundImage: avatarImage != null
+                        ? NetworkImage(avatarImage)
+                        : null,
                     child: avatarImage == null
                         ? Text(
                             initials,
@@ -430,173 +425,185 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : null,
                   ),
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 18),
-            _SectionCard(
-              title: context.tr('Hồ sơ người dùng'),
-              child: Column(
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _openAvatarPicker,
-                        child: Stack(
+                  _SectionCard(
+                    title: context.tr('Hồ sơ người dùng'),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: AppColors.primarySoft,
-                              backgroundImage: avatarImage != null
-                                  ? NetworkImage(avatarImage)
-                                  : null,
-                              child: avatarImage == null
-                                  ? Text(
-                                      initials,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 20,
-                                        color: AppColors.textPrimary,
+                            GestureDetector(
+                              onTap: _openAvatarPicker,
+                              child: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 30,
+                                    backgroundColor: AppColors.primarySoft,
+                                    backgroundImage: avatarImage != null
+                                        ? NetworkImage(avatarImage)
+                                        : null,
+                                    child: avatarImage == null
+                                        ? Text(
+                                            initials,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 20,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.border,
+                                        ),
                                       ),
-                                    )
-                                  : null,
-                            ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: const Icon(Icons.camera_alt, size: 14),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                loadingProfile
+                                    ? context.tr('Đang tải...')
+                                    : name,
+                                style: AppTextStyles.title,
+                              ),
+                            ),
+                            OutlinedButton(
+                              onPressed: () => _openEditNameSheet(
+                                title: context.tr('Chỉnh sửa hồ sơ'),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: AppColors.border),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(context.tr('Sửa hồ sơ')),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          loadingProfile ? context.tr('Đang tải...') : name,
-                          style: AppTextStyles.title,
+                        const SizedBox(height: 12),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.edit_outlined,
+                          title: context.tr('Đổi tên'),
+                          onTap: () =>
+                              _openEditNameSheet(title: context.tr('Đổi tên')),
                         ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => _openEditNameSheet(
-                          title: context.tr('Chỉnh sửa hồ sơ'),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.lock_outline,
+                          title: context.tr('Đổi mật khẩu'),
+                          onTap: _openChangePasswordSheet,
                         ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.border),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionCard(
+                    title: context.tr('Tuỳ chọn'),
+                    child: Column(
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.dark_mode_outlined,
+                          title: context.tr('Chế độ tối'),
+                          trailing: Switch(
+                            value: darkMode,
+                            onChanged: (_) => _toggleDarkMode(),
+                          ),
+                          showChevron: false,
+                          onTap: null,
+                        ),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.language,
+                          title: context.tr('Ngôn ngữ'),
+                          trailingText: languageCode == 'en'
+                              ? context.tr('English')
+                              : context.tr('Tiếng Việt'),
+                          onTap: _pickLanguage,
+                        ),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.notifications_none,
+                          title: context.tr('Thông báo'),
+                          trailingText: notificationsEnabled
+                              ? context.tr('Bật')
+                              : context.tr('Tắt'),
+                          onTap: _toggleNotifications,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionCard(
+                    title: context.tr('Thông tin'),
+                    child: Column(
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.privacy_tip_outlined,
+                          title: context.tr('Chính sách bảo mật'),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen(),
+                            ),
                           ),
                         ),
-                        child: Text(context.tr('Sửa hồ sơ')),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.description_outlined,
+                          title: context.tr('Điều khoản dịch vụ'),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const TermsOfServiceScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: _confirmLogout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.danger,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 2,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(height: 1, color: AppColors.border),
-                  _SettingsRow(
-                    icon: Icons.edit_outlined,
-                    title: context.tr('Đổi tên'),
-                    onTap: () => _openEditNameSheet(
-                      title: context.tr('Đổi tên'),
-                    ),
-                  ),
-                  Divider(height: 1, color: AppColors.border),
-                  _SettingsRow(
-                    icon: Icons.lock_outline,
-                    title: context.tr('Đổi mật khẩu'),
-                    onTap: _openChangePasswordSheet,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              title: context.tr('Tuỳ chọn'),
-              child: Column(
-                children: [
-                  _SettingsRow(
-                    icon: Icons.dark_mode_outlined,
-                    title: context.tr('Chế độ tối'),
-                    trailing: Switch(
-                      value: darkMode,
-                      onChanged: (_) => _toggleDarkMode(),
-                    ),
-                    showChevron: false,
-                    onTap: null,
-                  ),
-                  Divider(height: 1, color: AppColors.border),
-                  _SettingsRow(
-                    icon: Icons.language,
-                    title: context.tr('Ngôn ngữ'),
-                    trailingText: languageCode == 'en'
-                        ? context.tr('English')
-                        : context.tr('Tiếng Việt'),
-                    onTap: _pickLanguage,
-                  ),
-                  Divider(height: 1, color: AppColors.border),
-                  _SettingsRow(
-                    icon: Icons.notifications_none,
-                    title: context.tr('Thông báo'),
-                    trailingText: notificationsEnabled
-                        ? context.tr('Bật')
-                        : context.tr('Tắt'),
-                    onTap: _toggleNotifications,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _SectionCard(
-              title: context.tr('Thông tin'),
-              child: Column(
-                children: [
-                  _SettingsRow(
-                    icon: Icons.privacy_tip_outlined,
-                    title: context.tr('Chính sách bảo mật'),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PrivacyPolicyScreen(),
-                      ),
-                    ),
-                  ),
-                  Divider(height: 1, color: AppColors.border),
-                  _SettingsRow(
-                    icon: Icons.description_outlined,
-                    title: context.tr('Điều khoản dịch vụ'),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const TermsOfServiceScreen(),
+                      icon: const Icon(Icons.logout),
+                      label: Text(
+                        context.tr('Đăng xuất'),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _confirmLogout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.danger,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: 2,
-                ),
-                icon: const Icon(Icons.logout),
-                label: Text(
-                  context.tr('Đăng xuất'),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
               ),
             ),
           ],
@@ -610,10 +617,7 @@ class _EditNameSheet extends StatefulWidget {
   final String title;
   final String initialValue;
 
-  const _EditNameSheet({
-    required this.title,
-    required this.initialValue,
-  });
+  const _EditNameSheet({required this.title, required this.initialValue});
 
   @override
   State<_EditNameSheet> createState() => _EditNameSheetState();
@@ -637,7 +641,11 @@ class _EditNameSheetState extends State<_EditNameSheet> {
   void _submit() {
     final value = _controller.text.trim();
     if (value.isEmpty) {
-      showTopSnackBar(context, context.tr('Tên không được để trống'), isError: true);
+      showTopSnackBar(
+        context,
+        context.tr('Tên không được để trống'),
+        isError: true,
+      );
       return;
     }
     Navigator.pop(context, value);
@@ -693,10 +701,7 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const _SectionCard({
-    required this.title,
-    required this.child,
-  });
+  const _SectionCard({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -745,7 +750,8 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trailingWidget = trailing ??
+    final trailingWidget =
+        trailing ??
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -767,9 +773,7 @@ class _SettingsRow extends StatelessWidget {
           children: [
             Icon(icon, color: AppColors.textSecondary),
             const SizedBox(width: 12),
-            Expanded(
-              child: Text(title, style: AppTextStyles.body),
-            ),
+            Expanded(child: Text(title, style: AppTextStyles.body)),
             trailingWidget,
           ],
         ),
@@ -782,10 +786,7 @@ class _ChangePasswordSheet extends StatefulWidget {
   final VoidCallback onSuccess;
   final ValueChanged<String> onError;
 
-  const _ChangePasswordSheet({
-    required this.onSuccess,
-    required this.onError,
-  });
+  const _ChangePasswordSheet({required this.onSuccess, required this.onError});
 
   @override
   State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
@@ -814,7 +815,9 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
       return;
     }
     if (current == next) {
-      widget.onError(context.tr('Mật khẩu mới không được trùng mật khẩu hiện tại'));
+      widget.onError(
+        context.tr('Mật khẩu mới không được trùng mật khẩu hiện tại'),
+      );
       return;
     }
     if (next.length < 6) {
@@ -867,9 +870,7 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
           TextField(
             controller: newCtrl,
             obscureText: true,
-            decoration: InputDecoration(
-              labelText: context.tr('Mật khẩu mới'),
-            ),
+            decoration: InputDecoration(labelText: context.tr('Mật khẩu mới')),
           ),
           const SizedBox(height: 12),
           TextField(
