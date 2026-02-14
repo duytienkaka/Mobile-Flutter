@@ -17,9 +17,6 @@ public class Ingredient
     [Required, MaxLength(100)]
     public string Name { get; set; } = "";
 
-    [MaxLength(30)]
-    public string Category { get; set; } = "";
-
     public double Quantity { get; set; }
 
     [MaxLength(20)]

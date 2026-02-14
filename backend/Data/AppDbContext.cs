@@ -32,10 +32,6 @@ public class AppDbContext : DbContext
         ConfigureRecipeQuery(modelBuilder);
         ConfigureMealPlan(modelBuilder);
     }
-
-    // =====================================================
-    // USER
-    // =====================================================
     private static void ConfigureUser(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<User>();
@@ -67,10 +63,6 @@ public class AppDbContext : DbContext
         e.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");
     }
-
-    // =====================================================
-    // OTP CODE
-    // =====================================================
     private static void ConfigureOtpCode(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<OtpCode>();
@@ -96,10 +88,6 @@ public class AppDbContext : DbContext
         e.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");
     }
-
-    // =====================================================
-    // INGREDIENT
-    // =====================================================
     private static void ConfigureIngredient(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<Ingredient>();
@@ -126,10 +114,6 @@ public class AppDbContext : DbContext
         e.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");
     }
-
-    // =====================================================
-    // SHOPPING LIST + ITEM
-    // =====================================================
     private static void ConfigureShopping(ModelBuilder modelBuilder)
     {
         // -------- ShoppingList --------
@@ -173,10 +157,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.ShoppingListId)
             .OnDelete(DeleteBehavior.Cascade);
     }
-
-    // =====================================================
-    // COOKING HISTORY
-    // =====================================================
     private static void ConfigureCookingHistory(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<CookingHistory>();
@@ -201,9 +181,6 @@ public class AppDbContext : DbContext
             .HasDefaultValueSql("now()");
     }
 
-    // =====================================================
-    // RECIPE QUERY (AI LOG)
-    // =====================================================
     private static void ConfigureRecipeQuery(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<RecipeQuery>();
@@ -227,9 +204,6 @@ public class AppDbContext : DbContext
             .HasDefaultValueSql("now()");
     }
 
-    // =====================================================
-    // MEAL PLAN
-    // =====================================================
     private static void ConfigureMealPlan(ModelBuilder modelBuilder)
     {
         var e = modelBuilder.Entity<MealPlan>();

@@ -6,7 +6,7 @@ import '../storage/token_storage.dart';
 class ApiClient {
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:5074';
+      return 'http://192.168.1.12:5074';
     }
     return 'http://localhost:5074';
   }
