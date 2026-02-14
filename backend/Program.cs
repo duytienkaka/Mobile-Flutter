@@ -1,5 +1,6 @@
 using Backend.Auth.Services;
 using Backend.Data;
+using Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -17,8 +18,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<OtpService>();
-builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<Backend.Auth.Services.OtpService>();
+builder.Services.AddScoped<Backend.Auth.Services.JwtService>();
+builder.Services.AddHttpClient<GeminiService>();
+builder.Services.AddScoped<RecipeSuggestionService>();
+builder.Services.AddScoped<HomeAiService>();
 
 // Allow the Flutter web app (any localhost port) to call the API during dev
 builder.Services.AddCors(options =>

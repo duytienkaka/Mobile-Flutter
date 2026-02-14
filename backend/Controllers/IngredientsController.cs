@@ -35,6 +35,74 @@ public class IngredientsController : ControllerBase
         return items.Select(Map).ToList();
     }
 
+    [HttpPost]
+    public async Task<ActionResult<IngredientResponse>> CreateIngredient(
+        IngredientCreateRequest dto)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        var entity = new Backend.Models.Ingredient
+        {
+            UserId = userId.Value,
+            Name = dto.Name.Trim(),
+            Category = dto.Category?.Trim() ?? "",
+            Quantity = dto.Quantity,
+            Unit = dto.Unit?.Trim() ?? "",
+            ExpiredAt = dto.ExpiredAt == null
+                ? null
+                : DateTime.SpecifyKind(dto.ExpiredAt.Value, DateTimeKind.Utc)
+        };
+
+        _db.Ingredients.Add(entity);
+        await _db.SaveChangesAsync();
+
+        return Ok(Map(entity));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<IngredientResponse>> UpdateIngredient(
+        Guid id,
+        IngredientUpdateRequest dto)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        var entity = await _db.Ingredients
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+        if (entity == null) return NotFound();
+
+        entity.Name = dto.Name.Trim();
+        entity.Category = dto.Category?.Trim() ?? "";
+        entity.Quantity = dto.Quantity;
+        entity.Unit = dto.Unit?.Trim() ?? "";
+        entity.ExpiredAt = dto.ExpiredAt == null
+            ? null
+            : DateTime.SpecifyKind(dto.ExpiredAt.Value, DateTimeKind.Utc);
+
+        await _db.SaveChangesAsync();
+        return Ok(Map(entity));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteIngredient(Guid id)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var entity = await _db.Ingredients
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+        if (entity == null) return NotFound();
+
+        _db.Ingredients.Remove(entity);
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -49,6 +117,7 @@ public class IngredientsController : ControllerBase
         {
             Id = entity.Id,
             Name = entity.Name,
+            Category = entity.Category ?? string.Empty,
             Quantity = entity.Quantity,
             Unit = entity.Unit,
             ExpiredAt = entity.ExpiredAt

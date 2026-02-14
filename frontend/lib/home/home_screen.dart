@@ -11,6 +11,9 @@ import '../features/pantry/pantry_service.dart';
 import '../features/shopping/shopping_screen.dart';
 import '../features/navigation/main_bottom_nav.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/recipe/today/today_instruction_screen.dart';
+import '../features/recipe/today/today_service.dart';
+import 'home_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? fullName;
   final PantryService _pantryService = PantryService.instance;
+  final HomeAiService _homeService = HomeAiService.instance;
   int _expiringSoonCount = 0;
   int _expiredCount = 0;
 
@@ -31,11 +35,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadNameFromToken();
     _pantryService.addListener(_onPantryChanged);
     _pantryService.loadItems();
+    _homeService.addListener(_onHomeChanged);
+    _homeService.load();
   }
 
   @override
   void dispose() {
     _pantryService.removeListener(_onPantryChanged);
+    _homeService.removeListener(_onHomeChanged);
     super.dispose();
   }
 
@@ -45,6 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _expiringSoonCount = _pantryService.expiringSoonCount;
       _expiredCount = _pantryService.expiredCount;
     });
+  }
+
+  void _onHomeChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _loadNameFromToken() async {
@@ -102,60 +114,12 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildHeader(fullName),
               const SizedBox(height: 20),
-                Text(context.tr('Món bạn có thể nấu'),
+              Text(context.tr('Món bạn có thể nấu'),
                   style: AppTextStyles.subtitle),
               const SizedBox(height: 12),
               SizedBox(
                 height: 230,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _buildRecipeCard(
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=800&q=80',
-                      title: 'Hawaiian Chicken Smoked\nPizza',
-                      tags: const ['Mozzarella', 'Salame', '+8'],
-                      time: '40 Min',
-                      count: '12',
-                    ),
-                    const SizedBox(width: 14),
-                    _buildRecipeCard(
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80',
-                      title: 'Hawaiian Chicken\nPizza',
-                      tags: const ['Mozzarella', 'Salame', '+8'],
-                      time: '40 Min',
-                      count: '12',
-                    ),
-                    const SizedBox(width: 14),
-                    _buildRecipeCard(
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
-                      title: 'Grilled Chicken\nSalad',
-                      tags: const ['Lettuce', 'Chicken', '+5'],
-                      time: '25 Min',
-                      count: '8',
-                    ),
-                    const SizedBox(width: 14),
-                    _buildRecipeCard(
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=800&q=80',
-                      title: 'Pasta Carbonara',
-                      tags: const ['Pasta', 'Bacon', '+4'],
-                      time: '30 Min',
-                      count: '10',
-                    ),
-                    const SizedBox(width: 14),
-                    _buildRecipeCard(
-                      imageUrl:
-                          'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=800&q=80',
-                      title: 'Avocado Toast',
-                      tags: const ['Avocado', 'Egg', '+2'],
-                      time: '15 Min',
-                      count: '6',
-                    ),
-                  ],
-                ),
+                child: _buildHomeRecipeSection(),
               ),
               const SizedBox(height: 18),
               Row(
@@ -182,30 +146,170 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-                Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
+              Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
                   style: AppTextStyles.subtitle),
               const SizedBox(height: 12),
-              _buildTipCard(
-                icon: Icons.eco_outlined,
-                title: context.tr('Bảo quản rau xanh'),
-                message: context.tr(
-                  'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.'),
-                iconBackground: AppColors.primarySoft,
-                iconColor: AppColors.success,
-              ),
-              const SizedBox(height: 12),
-              _buildTipCard(
-                icon: Icons.set_meal_outlined,
-                title: context.tr('Giữ thịt tươi lâu'),
-                message: context.tr(
-                  'Chia nhỏ thịt trước khi cấp đông để dễ dùng.'),
-                iconBackground: AppColors.surfaceSoft,
-                iconColor: AppColors.warning,
-              ),
+              _buildHomeTipsSection(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeRecipeSection() {
+    if (_homeService.isLoading && _homeService.recipes.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_homeService.recipes.isEmpty) {
+      final message = _homeService.error?.replaceFirst('Exception: ', '')
+          ?? context.tr('Chưa có kế hoạch');
+      return Center(
+        child: Text(message, style: AppTextStyles.caption),
+      );
+    }
+
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: _homeService.recipes.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 14),
+      itemBuilder: (_, index) {
+        final recipe = _homeService.recipes[index];
+        return GestureDetector(
+          onTap: () => _handleRecipeTap(recipe),
+          child: _buildAiRecipeCard(
+            title: recipe.name,
+            tags: recipe.tags,
+            time: '${recipe.timeMinutes} Min',
+            count: recipe.ingredientCount,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleRecipeTap(HomeAiRecipe recipe) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('Nấu món này?')),
+        content: Text(context.tr('Bạn có muốn nấu món này không?')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.tr('Huỷ')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(context.tr('Nấu món này')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final todayRecipe = _mapToTodayRecipe(recipe);
+    final missing = _findMissingIngredients(todayRecipe.ingredients);
+    if (missing.isNotEmpty) {
+      await TodayService.instance.addMissingIngredients(missing);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'))),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TodayInstructionScreen(recipe: todayRecipe),
+      ),
+    );
+  }
+
+  TodayRecipe _mapToTodayRecipe(HomeAiRecipe recipe) {
+    final ingredients = recipe.ingredients
+        .map((name) => TodayIngredient(name: name, quantity: 1, unit: ''))
+        .toList();
+    return TodayRecipe(
+      name: recipe.name,
+      timeMinutes: recipe.timeMinutes,
+      imageUrl: '',
+      ingredients: ingredients,
+      missingIngredients: const [],
+    );
+  }
+
+  List<TodayIngredient> _findMissingIngredients(List<TodayIngredient> requiredItems) {
+    final pantryNames = _pantryService.items
+        .map((item) => _normalizeName(item.name))
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    final missing = <TodayIngredient>[];
+    for (final item in requiredItems) {
+      final normalized = _normalizeName(item.name);
+      if (normalized.isEmpty) continue;
+      if (!pantryNames.contains(normalized)) {
+        missing.add(item);
+      }
+    }
+
+    return missing;
+  }
+
+  String _normalizeName(String value) {
+    final trimmed = value.trim().toLowerCase();
+    final buffer = StringBuffer();
+    for (final rune in trimmed.runes) {
+      final char = String.fromCharCode(rune);
+      if (_isLetterOrDigit(char)) {
+        buffer.write(char);
+      } else {
+        buffer.write(' ');
+      }
+    }
+    final cleaned = buffer.toString();
+    return cleaned.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).join(' ');
+  }
+
+  bool _isLetterOrDigit(String value) {
+    final code = value.codeUnitAt(0);
+    if (code >= 48 && code <= 57) return true;
+    if (code >= 65 && code <= 90) return true;
+    if (code >= 97 && code <= 122) return true;
+    if (code > 127) return true;
+    return false;
+  }
+
+  Widget _buildHomeTipsSection() {
+    if (_homeService.isLoading && _homeService.tips.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_homeService.tips.isEmpty) {
+      final message = _homeService.error?.replaceFirst('Exception: ', '')
+          ?? 'Hôm nay chưa có mẹo phù hợp.';
+      return Text(message, style: AppTextStyles.caption);
+    }
+
+    return Column(
+      children: _homeService.tips.map((tip) {
+        final icon = _tipIcon(tip.category);
+        final iconColor = _tipIconColor(tip.category);
+        final background = _tipBackground(tip.category);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildTipCard(
+            icon: icon,
+            title: tip.title,
+            message: tip.message,
+            iconBackground: background,
+            iconColor: iconColor,
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -243,82 +347,141 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  static Widget _buildRecipeCard({
-    required String imageUrl,
+  static Widget _buildAiRecipeCard({
     required String title,
     required List<String> tags,
     required String time,
-    required String count,
+    required int count,
   }) {
     return SizedBox(
       width: 200,
       height: 210,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Stack(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                imageUrl,
-                height: 88,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text('Pizza', style: AppTextStyles.caption),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.subtitle,
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 20,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: tags.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (_, i) => Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSoft,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(tags[i], style: AppTextStyles.caption),
+            Positioned(
+              right: -24,
+              top: -20,
+              child: Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF4CC),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
             ),
-            const Spacer(),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.access_time,
-                  size: 12, color: AppColors.textMuted),
-                const SizedBox(width: 4),
-                Text(time, style: AppTextStyles.caption),
-                const SizedBox(width: 12),
-                Icon(Icons.list_alt,
-                  size: 12, color: AppColors.textMuted),
-                const SizedBox(width: 4),
-                Text(count, style: AppTextStyles.caption),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFDE68A), Color(0xFFFFEDD5)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text('AI gợi ý', style: AppTextStyles.caption),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'từ tủ lạnh',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Text(time, style: AppTextStyles.caption),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.subtitle,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Nguyên liệu chính',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: tags.map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(tag, style: AppTextStyles.caption),
+                    );
+                  }).toList(),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text('$count nguyên liệu', style: AppTextStyles.caption),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text('Dễ', style: AppTextStyles.caption),
+                    ),
+                  ],
+                )
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -397,6 +560,45 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  static IconData _tipIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'fruit':
+        return Icons.apple_outlined;
+      case 'vegetable':
+        return Icons.eco_outlined;
+      case 'meat':
+        return Icons.set_meal_outlined;
+      default:
+        return Icons.lightbulb_outline;
+    }
+  }
+
+  static Color _tipIconColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'fruit':
+        return AppColors.warning;
+      case 'vegetable':
+        return AppColors.success;
+      case 'meat':
+        return AppColors.danger;
+      default:
+        return AppColors.textMuted;
+    }
+  }
+
+  static Color _tipBackground(String category) {
+    switch (category.toLowerCase()) {
+      case 'fruit':
+        return const Color(0xFFFFF4CC);
+      case 'vegetable':
+        return AppColors.primarySoft;
+      case 'meat':
+        return AppColors.surfaceSoft;
+      default:
+        return AppColors.surface;
+    }
   }
 
   void _openScreen(Widget screen) {
