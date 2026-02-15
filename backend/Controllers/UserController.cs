@@ -99,6 +99,7 @@ public class UserController : ControllerBase
         return Ok(new { message = "Đổi mật khẩu thành công." });
     }
 
+    [ApiExplorerSettings(IgnoreApi = true)]
     [HttpPost("me/avatar")]
     [RequestSizeLimit(5 * 1024 * 1024)]
     public async Task<ActionResult<UserProfileResponse>> UploadAvatar([FromForm] IFormFile avatar)

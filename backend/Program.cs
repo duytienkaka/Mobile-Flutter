@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+// SignalR for real-time notifications
+builder.Services.AddSignalR();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -69,5 +71,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
+// Map SignalR hubs
+app.MapHub<Backend.Hubs.NotificationHub>("/hubs/notifications");
 
 app.Run();

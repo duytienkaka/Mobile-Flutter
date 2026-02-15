@@ -14,8 +14,14 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
 
+  # State management
+  provider: ^6.0.5
+
   # Networking
   http: ^1.2.2
+
+  # SignalR real-time
+  signalr_core: ^1.1.2
 
   # Local storage
   shared_preferences: ^2.3.4

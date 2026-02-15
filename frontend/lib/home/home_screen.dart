@@ -6,6 +6,8 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/l10n/app_localizations.dart';
 import '../features/notification/notification_screen.dart';
+import '../features/notification/notification_service.dart';
+import 'package:provider/provider.dart';
 import '../features/pantry/pantry_screen.dart';
 import '../features/pantry/pantry_service.dart';
 import '../features/shopping/shopping_screen.dart';
@@ -86,13 +88,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: MainFab(onPressed: () => _openScreen(const PantryScreen())),
+      floatingActionButton: MainFab(
+        onPressed: () => _openScreen(const PantryScreen()),
+      ),
       bottomNavigationBar: MainBottomBar(
         currentIndex: 0,
         onHome: () => _openScreen(const HomeScreen()),
         onRecipe: () => _openScreen(const RecipeScreen()),
         onShopping: () => _openScreen(const ShoppingScreen()),
         onNotifications: () => _openScreen(const NotificationScreen()),
+        unreadCount: Provider.of<NotificationService>(
+          context,
+        ).items.where((e) => !e.read).length,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -102,8 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildHeader(fullName),
               const SizedBox(height: 20),
-                Text(context.tr('Món bạn có thể nấu'),
-                  style: AppTextStyles.subtitle),
+              Text(
+                context.tr('Món bạn có thể nấu'),
+                style: AppTextStyles.subtitle,
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 height: 230,
@@ -182,14 +191,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-                Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
-                  style: AppTextStyles.subtitle),
+              Text(
+                context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
+                style: AppTextStyles.subtitle,
+              ),
               const SizedBox(height: 12),
               _buildTipCard(
                 icon: Icons.eco_outlined,
                 title: context.tr('Bảo quản rau xanh'),
                 message: context.tr(
-                  'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.'),
+                  'Rau cần độ ẩm, bọc trong khăn giấy ẩm để giữ tươi lâu.',
+                ),
                 iconBackground: AppColors.primarySoft,
                 iconColor: AppColors.success,
               ),
@@ -198,7 +210,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.set_meal_outlined,
                 title: context.tr('Giữ thịt tươi lâu'),
                 message: context.tr(
-                  'Chia nhỏ thịt trước khi cấp đông để dễ dùng.'),
+                  'Chia nhỏ thịt trước khi cấp đông để dễ dùng.',
+                ),
                 iconBackground: AppColors.surfaceSoft,
                 iconColor: AppColors.warning,
               ),
@@ -211,8 +224,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
-      ? context.tr('Xin chào')
-      : '${context.tr('Xin chào')} $name';
+        ? context.tr('Xin chào')
+        : '${context.tr('Xin chào')} $name';
 
     return Row(
       children: [
@@ -226,17 +239,19 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Text(displayName, style: AppTextStyles.subtitle),
+              Text(displayName, style: AppTextStyles.subtitle),
               const SizedBox(height: 4),
-                Text(context.tr('Chào mừng trở lại'),
-                  style: AppTextStyles.caption),
+              Text(
+                context.tr('Chào mừng trở lại'),
+                style: AppTextStyles.caption,
+              ),
             ],
           ),
         ),
         IconButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SettingsScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           icon: const Icon(Icons.settings),
         ),
       ],
@@ -255,17 +270,17 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 210,
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -295,8 +310,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemCount: tags.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 6),
                 itemBuilder: (_, i) => Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceSoft,
                     borderRadius: BorderRadius.circular(20),
@@ -308,17 +325,15 @@ class _HomeScreenState extends State<HomeScreen> {
             const Spacer(),
             Row(
               children: [
-                Icon(Icons.access_time,
-                  size: 12, color: AppColors.textMuted),
+                Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(time, style: AppTextStyles.caption),
                 const SizedBox(width: 12),
-                Icon(Icons.list_alt,
-                  size: 12, color: AppColors.textMuted),
+                Icon(Icons.list_alt, size: 12, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(count, style: AppTextStyles.caption),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -393,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(message, style: AppTextStyles.body),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -405,8 +420,6 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 }
