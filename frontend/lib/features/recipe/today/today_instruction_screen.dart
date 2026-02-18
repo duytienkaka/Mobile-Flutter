@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/top_snackbar.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -9,8 +10,13 @@ import 'today_instruction_step_screen.dart';
 
 class TodayInstructionScreen extends StatefulWidget {
   final TodayRecipe recipe;
+  final int servings;
 
-  const TodayInstructionScreen({super.key, required this.recipe});
+  const TodayInstructionScreen({
+    super.key,
+    required this.recipe,
+    this.servings = 1,
+  });
 
   @override
   State<TodayInstructionScreen> createState() => _TodayInstructionScreenState();
@@ -121,7 +127,12 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
         });
       }
     } catch (err) {
-      setState(() => _error = err.toString());
+      final errorMsg = err.toString().replaceFirst('Exception: ', '');
+      setState(() => _error = errorMsg);
+      if (mounted && errorMsg.isNotEmpty) {
+        // ignore: use_build_context_synchronously
+        showTopSnackBar(context, errorMsg, isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -136,15 +147,10 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
     }
 
     if (!hasSteps) {
-      final message = _error?.replaceFirst('Exception: ', '');
       final fallback = _buildFallbackSteps(recipe);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message != null) ...[
-            Text(message, style: AppTextStyles.caption),
-            const SizedBox(height: 8),
-          ],
           _buildStepsList(fallback),
         ],
       );
@@ -353,6 +359,7 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
       MaterialPageRoute(
         builder: (_) => TodayInstructionStepScreen(
           recipeName: widget.recipe.name,
+          servings: widget.servings,
           steps: detailed,
           initialIndex: 0,
         ),

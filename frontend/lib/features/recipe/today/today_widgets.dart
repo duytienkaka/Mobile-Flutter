@@ -22,8 +22,9 @@ class TodayTabButton extends StatelessWidget {
 			onTap: onTap,
 			child: AnimatedContainer(
 				duration: const Duration(milliseconds: 200),
-				margin: EdgeInsets.only(top: selected ? 0 : 6),
-				padding: const EdgeInsets.symmetric(vertical: 12),
+				   margin: EdgeInsets.zero,
+				   height: 48,
+				   padding: const EdgeInsets.symmetric(vertical: 0),
 				decoration: BoxDecoration(
 					color: selected ? AppColors.black : const Color(0xFFD9D9D9),
 					borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),

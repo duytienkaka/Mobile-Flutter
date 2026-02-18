@@ -103,6 +103,26 @@ public class IngredientsController : ControllerBase
         return Ok();
     }
 
+    [HttpDelete("all")]
+    public async Task<IActionResult> ClearAllIngredients()
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var items = await _db.Ingredients
+            .Where(x => x.UserId == userId)
+            .ToListAsync();
+
+        if (items.Count == 0)
+        {
+            return Ok(new { deleted = 0 });
+        }
+
+        _db.Ingredients.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return Ok(new { deleted = items.Count });
+    }
+
     private Guid? GetUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)

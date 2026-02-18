@@ -27,6 +27,7 @@ public class RecipeCookRequest
 {
     public string RecipeName { get; set; } = "";
     public string? RecipeSource { get; set; }
+    public List<RecipeIngredientDto> Ingredients { get; set; } = new();
 }
 
 public class RecipeInstructionsRequest

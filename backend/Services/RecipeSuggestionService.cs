@@ -46,6 +46,8 @@ public class RecipeSuggestionService
         var ingredients = await _db.Ingredients
             .AsNoTracking()
             .Where(x => x.UserId == userId)
+            .Where(x => x.Quantity > 0)
+            .Where(x => x.ExpiredAt == null || x.ExpiredAt >= DateTime.UtcNow.Date)
             .ToListAsync(ct);
 
         var recentCooked = await _db.CookingHistories
@@ -68,13 +70,33 @@ public class RecipeSuggestionService
             StringComparer.OrdinalIgnoreCase
         );
 
-        var geminiRecipes = await _gemini.GenerateRecipesAsync(
-            pantrySnapshot,
-            recentCooked,
-            PantryRecipeCount,
-            normalizedTab == "near" ? "near" : normalizedTab == "full" ? "full" : "mixed",
-            ct
-        );
+        List<GeminiRecipe> geminiRecipes;
+        if (normalizedTab == "near")
+        {
+            Console.WriteLine($"[AI] Requesting NEAR recipes for user {userId}...");
+            geminiRecipes = await _gemini.GenerateRecipesAsync(
+                pantrySnapshot,
+                recentCooked,
+                PantryRecipeCount,
+                "near",
+                ct
+            );
+            Console.WriteLine($"[AI] NEAR prompt result: {JsonSerializer.Serialize(geminiRecipes)}");
+            if (geminiRecipes.Count == 0)
+            {
+                Console.WriteLine($"[AI][WARNING] GeminiService trả về rỗng cho NEAR!");
+            }
+        }
+        else
+        {
+            geminiRecipes = await _gemini.GenerateRecipesAsync(
+                pantrySnapshot,
+                recentCooked,
+                PantryRecipeCount,
+                normalizedTab == "full" ? "full" : "mixed",
+                ct
+            );
+        }
 
         var result = BuildSuggestions(
             geminiRecipes,
@@ -144,47 +166,57 @@ public class RecipeSuggestionService
         var near = new List<RecipeSuggestionDto>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var recipe in pantryRecipes)
+        // Nếu mode là 'near', add toàn bộ recipe vào near (không filter pantry/missing/ratio)
+        // Nếu mode là 'full', add toàn bộ recipe vào full (không filter pantry/missing/ratio)
+        if (pantryRecipes.Count > 0 && pantryRecipes[0].Ingredients.Any(x => x.Name != null))
         {
-            var name = (recipe.Name ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(name))
+            foreach (var recipe in pantryRecipes)
             {
-                continue;
-            }
-
-            var normalized = NormalizeName(name);
-            if (recentNormalized.Contains(normalized) || !seen.Add(normalized))
-            {
-                continue;
-            }
-
-            var ingredients = recipe.Ingredients
-                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
-                .Select(x => new RecipeIngredientDto
+                var name = (recipe.Name ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(name))
                 {
-                    Name = x.Name.Trim(),
-                    Quantity = x.Quantity <= 0 ? 1 : x.Quantity,
-                    Unit = x.Unit?.Trim() ?? ""
-                })
-                .ToList();
-
-            if (ingredients.Count == 0)
-            {
-                continue;
-            }
-
-            var missing = ingredients
-                .Where(x => !IsIngredientAvailable(x.Name, pantryNames))
-                .ToList();
-
-            var ratio = (double)missing.Count / ingredients.Count;
-            if (missing.Count == 0)
-            {
-                full.Add(MapSuggestion(recipe, ingredients, missing));
-            }
-            else if (ratio <= 1.0 / 3.0)
-            {
-                near.Add(MapSuggestion(recipe, ingredients, missing));
+                    continue;
+                }
+                var normalized = NormalizeName(name);
+                if (recentNormalized.Contains(normalized) || !seen.Add(normalized))
+                {
+                    continue;
+                }
+                var ingredients = recipe.Ingredients
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                    .Select(x => new RecipeIngredientDto
+                    {
+                        Name = x.Name.Trim(),
+                        Quantity = x.Quantity <= 0 ? 1 : x.Quantity,
+                        Unit = x.Unit?.Trim() ?? ""
+                    })
+                    .ToList();
+                if (ingredients.Count == 0)
+                {
+                    continue;
+                }
+                var missing = ingredients
+                    .Where(x => !IsIngredientAvailable(x.Name, pantryNames))
+                    .ToList();
+                if (pantryRecipes.Count == 3 && (recipe.Ingredients.Count > 0))
+                {
+                    // Nếu đang ở mode 'near', add tất cả vào near
+                    near.Add(MapSuggestion(recipe, ingredients, missing));
+                    // Nếu đang ở mode 'full', add tất cả vào full
+                    full.Add(MapSuggestion(recipe, ingredients, missing));
+                }
+                else
+                {
+                    var ratio = (double)missing.Count / ingredients.Count;
+                    if (missing.Count == 0)
+                    {
+                        full.Add(MapSuggestion(recipe, ingredients, missing));
+                    }
+                    else if (ratio <= 1.0 / 3.0)
+                    {
+                        near.Add(MapSuggestion(recipe, ingredients, missing));
+                    }
+                }
             }
         }
 
