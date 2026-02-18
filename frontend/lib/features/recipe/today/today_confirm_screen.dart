@@ -1,9 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/top_snackbar.dart';
+import '../../../core/api/api_client.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import 'today_instruction_screen.dart';
 import 'today_service.dart';
+import '../../pantry/pantry_service.dart';
+import '../../pantry/pantry_item_model.dart';
 
 class TodayConfirmScreen extends StatefulWidget {
   final TodayRecipe recipe;
@@ -17,15 +23,42 @@ class TodayConfirmScreen extends StatefulWidget {
 class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
   bool _saving = false;
   final Set<String> _addedKeys = {};
-  int _servings = 2;
+  int _servings = 1;
+
+  List<String> _missingKeys = [];
+  List<TodayIngredient> _missingIngredients = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateMissing();
+  }
+
+  void _calculateMissing() {
+    final pantryItems = PantryService.instance.items;
+    final recipe = widget.recipe;
+    final missing = <TodayIngredient>[];
+    final missingKeys = <String>[];
+    for (final ing in recipe.ingredients) {
+      final pantry = pantryItems.firstWhere(
+        (p) => p.name.toLowerCase() == ing.name.toLowerCase() && p.unit.toLowerCase() == ing.unit.toLowerCase(),
+        orElse: () => PantryItemModel(id: '', name: '', category: '', quantity: 0, unit: ing.unit),
+      );
+      if (pantry.quantity < ing.quantity * _servings) {
+        missing.add(ing);
+        missingKeys.add(ing.key);
+      }
+    }
+    setState(() {
+      _missingIngredients = missing;
+      _missingKeys = missingKeys;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final recipe = widget.recipe;
-    final missingKeys = recipe.missingIngredients
-      .map((item) => item.key)
-      .toSet();
-    final hasMissing = missingKeys.isNotEmpty;
+    final hasMissing = _missingKeys.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -56,7 +89,7 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              _buildIngredientList(recipe.ingredients, missingKeys),
+              _buildIngredientList(recipe.ingredients, _missingKeys.toSet()),
               if (hasMissing) ...[
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
@@ -341,7 +374,7 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
                     child: Text(item.name, style: AppTextStyles.body),
                   ),
                   Text(
-                    _formatQuantity(item),
+                    _formatQuantity(_scaledIngredient(item)),
                     style: AppTextStyles.caption,
                   ),
                   const SizedBox(width: 10),
@@ -389,34 +422,69 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
   Future<void> _confirmCook() async {
     setState(() => _saving = true);
     try {
-      await TodayService.instance.cookRecipe(widget.recipe, addMissing: false);
+      final scaledRecipe = _scaledRecipe();
+      // Kiểm tra pantry và số lượng thực tế
+      final pantryItems = PantryService.instance.items;
+      final missing = <TodayIngredient>[];
+      for (final ing in scaledRecipe.ingredients) {
+        final pantry = pantryItems.firstWhere(
+          (p) => p.name.toLowerCase() == ing.name.toLowerCase() && p.unit.toLowerCase() == ing.unit.toLowerCase(),
+          orElse: () => PantryItemModel(id: '', name: '', category: '', quantity: 0, unit: ing.unit),
+        );
+        if (pantry.quantity < ing.quantity) {
+          missing.add(ing);
+        }
+      }
+      if (missing.isNotEmpty) {
+        await TodayService.instance.addMissingIngredients(
+          missing,
+          recipeName: scaledRecipe.name,
+        );
+        showTopSnackBar(context, 'Đã tạo danh sách mua sắm cho món này!', isError: false);
+        // Chuyển hướng sang trang shopping
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/shopping');
+        return;
+      }
+      await TodayService.instance.cookRecipe(scaledRecipe, addMissing: false);
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TodayInstructionScreen(recipe: widget.recipe),
+          builder: (_) => TodayInstructionScreen(
+            recipe: scaledRecipe,
+            servings: _servings,
+          ),
         ),
       );
     } catch (err) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
-      );
+      showTopSnackBar(context, err.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  Future<Set<String>> _getPantryKeys() async {
+    final res = await ApiClient.get('/ingredients/all');
+    if (res.statusCode != 200) return {};
+    final data = jsonDecode(res.body);
+    if (data is! List) return {};
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((item) => TodayIngredient.fromJson(item).key)
+        .toSet();
+  }
+
   Future<void> _addSingleMissing(TodayIngredient item) async {
     setState(() => _saving = true);
     try {
-      await TodayService.instance.addMissingIngredient(item);
+      await TodayService.instance.addMissingIngredient(_scaledIngredient(item));
       if (!mounted) return;
       setState(() => _addedKeys.add(item.key));
     } catch (err) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
-      );
+      showTopSnackBar(context, err.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -425,8 +493,11 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
   Future<void> _addAllMissing() async {
     setState(() => _saving = true);
     try {
+      final scaledMissing = widget.recipe.missingIngredients
+          .map(_scaledIngredient)
+          .toList();
       await TodayService.instance.addMissingIngredients(
-        widget.recipe.missingIngredients,
+        scaledMissing,
       );
       if (!mounted) return;
       setState(() {
@@ -436,11 +507,29 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
       });
     } catch (err) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(err.toString())),
-      );
+      showTopSnackBar(context, err.toString().replaceFirst('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  TodayIngredient _scaledIngredient(TodayIngredient item) {
+    return TodayIngredient(
+      name: item.name,
+      quantity: item.quantity * _servings,
+      unit: item.unit,
+    );
+  }
+
+  TodayRecipe _scaledRecipe() {
+    return TodayRecipe(
+      name: widget.recipe.name,
+      timeMinutes: widget.recipe.timeMinutes,
+      imageUrl: widget.recipe.imageUrl,
+      ingredients: widget.recipe.ingredients.map(_scaledIngredient).toList(),
+      missingIngredients: widget.recipe.missingIngredients
+          .map(_scaledIngredient)
+          .toList(),
+    );
   }
 }

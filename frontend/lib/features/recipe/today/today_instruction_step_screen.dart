@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/top_snackbar.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../planner/planner_service.dart';
+import '../recipe_screen.dart';
 
 class TodayInstructionStepScreen extends StatefulWidget {
 	final String recipeName;
+	final int servings;
 	final List<String> steps;
 	final int initialIndex;
 
 	const TodayInstructionStepScreen({
 		super.key,
 		required this.recipeName,
+		this.servings = 1,
 		required this.steps,
 		required this.initialIndex,
 	});
@@ -21,6 +26,7 @@ class TodayInstructionStepScreen extends StatefulWidget {
 
 class _TodayInstructionStepScreenState extends State<TodayInstructionStepScreen> {
 	late int _index;
+	bool _finishing = false;
 
 	@override
 	void initState() {
@@ -99,7 +105,9 @@ class _TodayInstructionStepScreenState extends State<TodayInstructionStepScreen>
 						const SizedBox(width: 12),
 						Expanded(
 							child: ElevatedButton(
-								onPressed: _index < total - 1 ? _nextStep : _finish,
+								onPressed: _index < total - 1
+									? _nextStep
+									: (_finishing ? null : _finish),
 								style: ElevatedButton.styleFrom(
 									backgroundColor: AppColors.primary,
 									foregroundColor: AppColors.black,
@@ -108,11 +116,17 @@ class _TodayInstructionStepScreenState extends State<TodayInstructionStepScreen>
 										borderRadius: BorderRadius.circular(14),
 									),
 								),
-								child: Text(
-									_index < total - 1
-											? context.tr('Bước tiếp theo')
-											: context.tr('Hoàn tất'),
-								),
+								child: _finishing
+									? const SizedBox(
+										height: 18,
+										width: 18,
+										child: CircularProgressIndicator(strokeWidth: 2),
+									)
+									: Text(
+										_index < total - 1
+												? context.tr('Bước tiếp theo')
+												: context.tr('Hoàn tất'),
+									),
 							),
 						),
 					],
@@ -198,7 +212,38 @@ class _TodayInstructionStepScreenState extends State<TodayInstructionStepScreen>
 		setState(() => _index -= 1);
 	}
 
-	void _finish() {
-		Navigator.of(context).pop();
+	Future<void> _finish() async {
+		setState(() => _finishing = true);
+		try {
+			final now = DateTime.now();
+			final mealType = _mealTypeByTime(now);
+			final entry = MealPlanEntry(
+				id: PlannerService.instance.createId(),
+				date: now,
+				mealType: mealType,
+				recipeName: widget.recipeName,
+				servings: widget.servings <= 0 ? 1 : widget.servings,
+				note: 'Hoàn tất lúc ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+			);
+			await PlannerService.instance.createPlan(entry);
+
+			if (!mounted) return;
+			Navigator.of(context).pushAndRemoveUntil(
+				MaterialPageRoute(builder: (_) => const RecipeScreen()),
+				(route) => false,
+			);
+		} catch (e) {
+			if (!mounted) return;
+			showTopSnackBar(context, e.toString().replaceAll('Exception: ', ''), isError: true);
+			setState(() => _finishing = false);
+		}
+	}
+
+	MealType _mealTypeByTime(DateTime time) {
+		final hour = time.hour;
+		if (hour >= 5 && hour < 11) return MealType.breakfast;
+		if (hour >= 11 && hour < 16) return MealType.lunch;
+		if (hour >= 16 && hour < 22) return MealType.dinner;
+		return MealType.snack;
 	}
 }

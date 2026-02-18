@@ -3,6 +3,7 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/ingredient_card.dart';
+import '../../core/widgets/top_snackbar.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
@@ -37,9 +38,11 @@ List<_CategoryOption> _buildCategoryOptions(BuildContext context) {
 }
 
 class _PantryScreenState extends State<PantryScreen> {
+    bool _hasShownMissingInfoSnackbar = false;
   final PantryService _service = PantryService.instance;
   final TextEditingController _searchCtrl = TextEditingController();
   int _selectedCategory = 0;
+  bool _sortByNameAsc = false;
 
   @override
   void initState() {
@@ -129,6 +132,28 @@ class _PantryScreenState extends State<PantryScreen> {
                       color: AppColors.textPrimary,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.shadow,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      onPressed: () => _confirmClearAll(context),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+                      color: AppColors.danger,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -194,7 +219,9 @@ class _PantryScreenState extends State<PantryScreen> {
                       ],
                     ),
                     child: IconButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        setState(() => _sortByNameAsc = !_sortByNameAsc);
+                      },
                       icon: const Icon(Icons.tune),
                       color: AppColors.surface,
                     ),
@@ -313,13 +340,42 @@ class _PantryScreenState extends State<PantryScreen> {
     final query = _searchCtrl.text.trim().toLowerCase();
     final categoryKey = categories[_selectedCategory].key;
 
-    return items.where((item) {
+    // Đưa các item thiếu thông tin lên đầu
+    final filtered = items.where((item) {
       final name = item.name.toLowerCase();
       final matchQuery = query.isEmpty || name.contains(query);
       final itemCategory = item.category.trim().toLowerCase();
       final matchCategory = categoryKey == 'all' || itemCategory == categoryKey;
       return matchQuery && matchCategory;
     }).toList();
+
+    // Đưa các item thiếu thông tin lên đầu
+    filtered.sort((a, b) {
+      bool aMissing = a.quantity == 0 || a.unit.trim().isEmpty || a.category.trim().isEmpty;
+      bool bMissing = b.quantity == 0 || b.unit.trim().isEmpty || b.category.trim().isEmpty;
+      if (aMissing && !bMissing) return -1;
+      if (!aMissing && bMissing) return 1;
+      if (_sortByNameAsc) {
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      }
+      return 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final hasMissing = filtered.any((item) => item.quantity == 0 || item.unit.trim().isEmpty || item.category.trim().isEmpty);
+      if (hasMissing && !_hasShownMissingInfoSnackbar) {
+        _hasShownMissingInfoSnackbar = true;
+        showTopSnackBar(
+          context,
+          context.tr('Một số nguyên liệu cần điền đủ thông tin!'),
+          isError: false,
+        );
+      }
+      if (!hasMissing && _hasShownMissingInfoSnackbar) {
+        _hasShownMissingInfoSnackbar = false;
+      }
+    });
+
+    return filtered;
   }
 
   String _formatQuantity(PantryItemModel item) {
@@ -413,6 +469,43 @@ class _PantryScreenState extends State<PantryScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(context.tr('Không thể xoá'))));
+    }
+  }
+
+  Future<void> _confirmClearAll(BuildContext context) async {
+    if (_service.items.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.tr('Dọn tủ lạnh')),
+        content: Text(context.tr('Xoá toàn bộ nguyên liệu trong tủ lạnh?')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.tr('Huỷ')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text(context.tr('Xoá hết')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _service.clearAllItems();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Đã dọn toàn bộ tủ lạnh'))),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('Không thể dọn tủ lạnh'))),
+      );
     }
   }
 

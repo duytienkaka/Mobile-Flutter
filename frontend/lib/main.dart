@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/features/shopping/shopping_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/l10n/app_localizations.dart';
@@ -31,6 +32,9 @@ class MyApp extends StatelessWidget {
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: const LoginScreen(),
+        routes: {
+          '/shopping': (context) => const ShoppingScreen(),
+        },
       ),
     );
   }

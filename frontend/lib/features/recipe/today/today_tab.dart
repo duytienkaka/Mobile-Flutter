@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/top_snackbar.dart';
+import 'package:frontend/features/shopping/shopping_list_detail_screen.dart';
+import 'package:frontend/features/shopping/shopping_screen.dart';
+import 'package:frontend/features/shopping/shopping_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -22,7 +26,9 @@ class _TodayTabState extends State<TodayTab> {
   void initState() {
     super.initState();
     _service.addListener(_onChanged);
+    // Tự động load cả hai tab khi app khởi động
     _service.loadTab(TodayTabType.full);
+    _service.loadTab(TodayTabType.near);
   }
 
   @override
@@ -48,8 +54,18 @@ class _TodayTabState extends State<TodayTab> {
     final showLoading = _service.isLoadingFor(tabType) && recipes.isEmpty;
     final tabError = _service.errorFor(tabType);
 
+    if (tabError != null && tabError.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showTopSnackBar(
+          context,
+          tabError.replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      });
+    }
     return Column(
       children: [
+        // Tabs row: no extra container, just the Row for visual consistency
         Row(
           children: [
             Expanded(
@@ -64,7 +80,7 @@ class _TodayTabState extends State<TodayTab> {
             ),
             Expanded(
               child: TodayTabButton(
-                label: context.tr('Nguyên liệu\n gần đủ'),
+                label: context.tr('Món ăn dinh dưỡng'),
                 selected: _selectedTab == 1,
                 onTap: () {
                   setState(() => _selectedTab = 1);
@@ -74,6 +90,7 @@ class _TodayTabState extends State<TodayTab> {
             ),
           ],
         ),
+        // ...existing code...
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -94,35 +111,43 @@ class _TodayTabState extends State<TodayTab> {
                   height: 210,
                   child: showLoading
                       ? const Center(child: CircularProgressIndicator())
-                      : tabError != null
+                      : recipes.isEmpty
                           ? Center(
-                              child: Text(
-                                tabError.replaceFirst('Exception: ', ''),
-                                style: AppTextStyles.caption,
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          : recipes.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    context.tr('Chưa có kế hoạch'),
-                                    style: AppTextStyles.caption,
-                                  ),
-                                )
-                              : ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: recipes.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(width: 12),
-                                  itemBuilder: (_, index) => GestureDetector(
-                                    onTap: () =>
-                                        _service.selectRecipe(tabType, index),
-                                    child: _buildRecipeCard(
-                                      recipes[index],
-                                      selectedIndex == index,
+                              child: tabType == TodayTabType.near
+                                  ? Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          context.tr('Chưa có kế hoạch'),
+                                          style: AppTextStyles.caption,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          context.tr('Đang gợi ý 3 món ăn dinh dưỡng từ AI. Không phụ thuộc nguyên liệu trong tủ lạnh.'),
+                                          style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      context.tr('Chưa có kế hoạch'),
+                                      style: AppTextStyles.caption,
                                     ),
-                                  ),
+                            )
+                          : ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: recipes.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (_, index) => GestureDetector(
+                                onTap: () =>
+                                    _service.selectRecipe(tabType, index),
+                                child: _buildRecipeCard(
+                                  recipes[index],
+                                  selectedIndex == index,
                                 ),
+                              ),
+                            ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -181,11 +206,43 @@ class _TodayTabState extends State<TodayTab> {
   Future<void> _handleCook(TodayTabType tab) async {
     final recipe = _service.selectedRecipe(tab) ?? _buildFallbackRecipe();
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => TodayConfirmScreen(recipe: recipe),
-      ),
-    );
+    if (tab == TodayTabType.full && recipe.missingIngredients.isNotEmpty) {
+      // Nếu là tab "Nguyên liệu đã đủ" nhưng vẫn còn nguyên liệu thiếu (trường hợp hiếm),
+      // thì chuyển sang shopping list và mở list đầu tiên (nếu có)
+      // Đầu tiên, đảm bảo đã thêm các nguyên liệu thiếu vào shopping list
+      await TodayService.instance.addMissingIngredients(recipe.missingIngredients);
+      // Load lại danh sách shopping list
+      final shoppingService = await _getShoppingService(context);
+      await shoppingService.loadLists();
+      if (!mounted) return;
+      if (shoppingService.lists.isNotEmpty) {
+        final list = shoppingService.lists.first;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ShoppingListDetailScreen(list: list),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ShoppingScreen(),
+          ),
+        );
+      }
+      showTopSnackBar(context, 'Đã thêm thực phẩm cần mua vào giỏ hàng!', isError: false);
+    } else {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TodayConfirmScreen(recipe: recipe),
+        ),
+      );
+    }
+  }
+
+  // Helper để lấy ShoppingService instance từ context hoặc singleton
+  Future<ShoppingService> _getShoppingService(BuildContext context) async {
+    // Nếu đã có instance thì trả về luôn
+    return ShoppingService.instance;
   }
 
   TodayRecipe _buildFallbackRecipe() {

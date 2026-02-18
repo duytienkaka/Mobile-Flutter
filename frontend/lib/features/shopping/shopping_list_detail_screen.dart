@@ -6,6 +6,8 @@ import '../../core/widgets/empty_state.dart';
 import 'shopping_item_model.dart';
 import 'shopping_list_model.dart';
 import 'shopping_service.dart';
+import '../pantry/pantry_service.dart';
+import '../pantry/pantry_screen.dart';
 
 class ShoppingListDetailScreen extends StatefulWidget {
 	final ShoppingListModel list;
@@ -20,24 +22,26 @@ class ShoppingListDetailScreen extends StatefulWidget {
 }
 
 class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
-	final ShoppingService service = ShoppingService.instance;
-	bool showCompleted = true;
+	bool _processing = false;
+	bool showCompleted = false;
+	late ShoppingService service;
 
 	@override
 	void initState() {
 		super.initState();
-		service.addListener(_onChanged);
+		service = ShoppingService.instance;
 		service.loadItemsForList(widget.list.id);
 	}
 
-	@override
-	void dispose() {
-		service.removeListener(_onChanged);
-		super.dispose();
-	}
-
-	void _onChanged() {
-		if (mounted) setState(() {});
+	void _openAddItemSheet() {
+		showModalBottomSheet(
+			context: context,
+			isScrollControlled: true,
+			builder: (_) => _AddShoppingItemSheet(
+				service: service,
+				listId: widget.list.id,
+			),
+		);
 	}
 
 	@override
@@ -77,95 +81,86 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 			),
 			body: SafeArea(
 				child: hasItems
-					? ListView(
-							padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-							children: [
-								Text(context.tr('Cần mua'),
-									style: AppTextStyles.subtitle),
-								const SizedBox(height: 10),
-								...toBuyGroups.entries.expand(
-									(group) => [
-										if (showToBuyGroupHeader)
-											Text(
-												context.tr(group.key),
-												style: AppTextStyles.subtitle,
-											),
-										if (showToBuyGroupHeader)
-											const SizedBox(height: 8),
-										...group.value.map(_buildItemTile),
-										const SizedBox(height: 12),
-									],
-								),
-								const SizedBox(height: 4),
-								GestureDetector(
-									onTap: () =>
-										setState(() => showCompleted = !showCompleted),
-									child: Row(
-										children: [
-											Expanded(
-												child: Text(
-													'${context.tr('Đã hoàn thành')} ($completedCount ${context.tr('món')})',
-													style: AppTextStyles.subtitle,
-												),
-											),
-											Icon(
-												showCompleted
-													? Icons.expand_less
-													: Icons.expand_more,
-											),
-										],
-									),
-								),
-								const SizedBox(height: 8),
-								if (showCompleted)
-									...completedGroups.entries.expand(
+						? ListView(
+								padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+								children: [
+									Text(context.tr('Cần mua'), style: AppTextStyles.subtitle),
+									const SizedBox(height: 10),
+									...toBuyGroups.entries.expand(
 										(group) => [
-											if (showCompletedGroupHeader)
-												Text(
-													context.tr(group.key),
-													style: AppTextStyles.subtitle,
-												),
-											if (showCompletedGroupHeader)
-												const SizedBox(height: 8),
-											...group.value.map(_buildItemTile),
+											if (showToBuyGroupHeader)
+												Text(context.tr(group.key), style: AppTextStyles.subtitle),
+											if (showToBuyGroupHeader) const SizedBox(height: 8),
+											...group.value.map((item) => _buildItemTile(item)),
 											const SizedBox(height: 12),
 										],
 									),
-							],
-						)
-					: EmptyState(
-						title: context.tr('Danh sách trống'),
-						message: context.tr('Nhấn dấu + để thêm món thủ công vào danh sách.'),
-						icon: Icons.shopping_cart_outlined,
-						actionLabel: context.tr('Thêm món'),
-						onAction: _openAddItemSheet,
-					),
-			),
-		);
-	}
-
-	Future<void> _openAddItemSheet() async {
-		await showModalBottomSheet(
-			context: context,
-			isScrollControlled: true,
-			shape: const RoundedRectangleBorder(
-				borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-			),
-			builder: (_) => _AddShoppingItemSheet(
-				service: service,
-				listId: widget.list.id,
+									const SizedBox(height: 4),
+									GestureDetector(
+										onTap: () => setState(() => showCompleted = !showCompleted),
+										child: Row(
+											children: [
+												Expanded(
+													child: Text(
+														'${context.tr('Đã hoàn thành')} ($completedCount ${context.tr('món')})',
+														style: AppTextStyles.subtitle,
+													),
+												),
+												Icon(showCompleted ? Icons.expand_less : Icons.expand_more),
+											],
+										),
+									),
+									const SizedBox(height: 8),
+									if (showCompleted)
+										...completedGroups.entries.expand(
+											(group) => [
+												if (showCompletedGroupHeader)
+													Text(context.tr(group.key), style: AppTextStyles.subtitle),
+												if (showCompletedGroupHeader) const SizedBox(height: 8),
+												...group.value.map((item) => _buildItemTile(item)),
+												const SizedBox(height: 12),
+											],
+										),
+									const SizedBox(height: 24),
+									ElevatedButton.icon(
+										onPressed: _processing ? null : _onConfirmBuy,
+										icon: _processing
+												? const SizedBox(
+														width: 18,
+														height: 18,
+														child: CircularProgressIndicator(strokeWidth: 2),
+													)
+												: const Icon(Icons.check_circle),
+										label: Text(context.tr('Xác nhận đã mua & thêm vào tủ lạnh')),
+										style: ElevatedButton.styleFrom(
+											backgroundColor: AppColors.success,
+											foregroundColor: Colors.white,
+											padding: const EdgeInsets.symmetric(vertical: 14),
+											shape: RoundedRectangleBorder(
+												borderRadius: BorderRadius.circular(14),
+											),
+										),
+									),
+								],
+							)
+						: EmptyState(
+								title: context.tr('Danh sách trống'),
+								message: context.tr('Nhấn dấu + để thêm món thủ công vào danh sách.'),
+								icon: Icons.shopping_cart_outlined,
+								actionLabel: context.tr('Thêm món'),
+								onAction: _openAddItemSheet,
+							),
 			),
 		);
 	}
 
 	Widget _buildItemTile(ShoppingItemModel item) {
 		final textStyle = item.isChecked
-			? AppTextStyles.subtitle.copyWith(
-					decoration: TextDecoration.lineThrough,
-					color: AppColors.textMuted,
-				)
-			: AppTextStyles.subtitle;
-
+				? AppTextStyles.subtitle.copyWith(
+						decoration: TextDecoration.lineThrough,
+						color: AppColors.textMuted,
+					)
+				: AppTextStyles.subtitle;
 		return Container(
 			margin: const EdgeInsets.only(bottom: 12),
 			child: Row(
@@ -173,8 +168,11 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 				children: [
 					Checkbox(
 						value: item.isChecked,
-						onChanged: (value) =>
-							service.toggleChecked(item.id, value ?? false),
+						onChanged: (value) {
+							setState(() {
+								service.toggleChecked(item.id, value ?? false);
+							});
+						},
 					),
 					Expanded(
 						child: Column(
@@ -184,11 +182,6 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 									'${item.name} - ${item.quantity} ${item.unit}',
 									style: textStyle,
 								),
-								const SizedBox(height: 4),
-								Text(
-									context.tr(item.sourceDetail),
-									style: AppTextStyles.caption,
-								),
 								Divider(height: 16, color: AppColors.border),
 							],
 						),
@@ -197,6 +190,51 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 			),
 		);
 	}
+
+	Future<void> _onConfirmBuy() async {
+		setState(() => _processing = true);
+		try {
+			// Lấy các item chưa có trong pantry
+			final pantry = PantryService.instance;
+			await pantry.loadItems();
+			final pantryItems = pantry.items;
+			final toAdd = service.items.where((item) {
+				return !pantryItems.any((p) =>
+						p.name.toLowerCase() == item.name.toLowerCase());
+			}).toList();
+			// Chỉ thêm tên, các trường khác để trống
+			for (final item in toAdd) {
+				await pantry.createItem(
+					name: item.name,
+					category: '',
+					quantity: 0,
+					unit: '',
+				);
+			}
+			await pantry.loadItems();
+			// Đưa item mới lên đầu danh sách
+			if (toAdd.isNotEmpty) {
+				Navigator.of(context).pushReplacement(
+					MaterialPageRoute(builder: (_) => PantryScreen()),
+				);
+				Future.delayed(const Duration(milliseconds: 500), () {
+					ScaffoldMessenger.of(context).showSnackBar(
+						SnackBar(
+							content: Text('Vui lòng điền thêm thông tin cho nguyên liệu vừa thêm!'),
+							backgroundColor: AppColors.warning,
+						),
+					);
+				});
+			}
+		} catch (e) {
+			ScaffoldMessenger.of(context).showSnackBar(
+				SnackBar(content: Text('Có lỗi khi thêm vào tủ lạnh: $e'), backgroundColor: AppColors.danger),
+			);
+		} finally {
+			setState(() => _processing = false);
+		}
+	}
+	// ...existing code...
 
 	String _formatDate(DateTime date) {
 		final d = date.toLocal();

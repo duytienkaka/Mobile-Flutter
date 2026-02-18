@@ -25,4 +25,6 @@ public class Ingredient
     public DateTime? ExpiredAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public required string Category { get; set; }
 }

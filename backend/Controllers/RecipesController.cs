@@ -3,9 +3,12 @@ using Backend.DTOs;
 using Backend.Models;
 using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace Backend.Controllers;
 
@@ -105,6 +108,78 @@ public class RecipesController : ControllerBase
             return BadRequest(new { message = "Tên món ăn không được để trống." });
         }
 
+        var requiredIngredients = request.Ingredients
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .Select(x => new RecipeIngredientDto
+            {
+                Name = x.Name.Trim(),
+                Quantity = x.Quantity <= 0 ? 1 : x.Quantity,
+                Unit = (x.Unit ?? string.Empty).Trim()
+            })
+            .ToList();
+
+        if (requiredIngredients.Count > 0)
+        {
+            var today = DateTime.UtcNow.Date;
+            var pantryItems = await _db.Ingredients
+                .Where(x => x.UserId == userId.Value)
+                .Where(x => x.Quantity > 0)
+                .Where(x => x.ExpiredAt == null || x.ExpiredAt >= today)
+                .ToListAsync(ct);
+
+            foreach (var required in requiredIngredients)
+            {
+                var requiredName = NormalizeName(required.Name);
+                var requiredUnit = required.Unit.Trim();
+
+                var candidates = pantryItems
+                    .Where(x => NormalizeName(x.Name) == requiredName)
+                    .OrderBy(x => x.ExpiredAt ?? DateTime.MaxValue)
+                    .ThenBy(x => x.CreatedAt)
+                    .ToList();
+
+                if (!string.IsNullOrWhiteSpace(requiredUnit))
+                {
+                    var sameUnit = candidates
+                        .Where(x => string.Equals(
+                            x.Unit?.Trim(),
+                            requiredUnit,
+                            StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (sameUnit.Count > 0)
+                    {
+                        candidates = sameUnit;
+                    }
+                }
+
+                var available = candidates.Sum(x => x.Quantity);
+                if (available < required.Quantity)
+                {
+                    return BadRequest(new
+                    {
+                        message = $"Nguyên liệu {required.Name} không đủ hoặc đã hết hạn sử dụng."
+                    });
+                }
+
+                var remaining = required.Quantity;
+                foreach (var item in candidates)
+                {
+                    if (remaining <= 0) break;
+
+                    var used = Math.Min(item.Quantity, remaining);
+                    item.Quantity -= used;
+                    remaining -= used;
+                }
+            }
+
+            var depleted = pantryItems.Where(x => x.Quantity <= 0).ToList();
+            if (depleted.Count > 0)
+            {
+                _db.Ingredients.RemoveRange(depleted);
+            }
+        }
+
         var entity = new CookingHistory
         {
             UserId = userId.Value,
@@ -184,5 +259,27 @@ public class RecipesController : ControllerBase
             await Response.WriteAsync(payload + "\n", ct);
             await Response.Body.FlushAsync(ct);
         }
+    }
+
+    private static string NormalizeName(string? input)
+    {
+        var text = (input ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder
+            .ToString()
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D')
+            .ToLowerInvariant();
     }
 }

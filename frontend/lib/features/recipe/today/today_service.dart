@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:frontend/features/shopping/shopping_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../../../core/api/api_client.dart';
@@ -87,6 +88,51 @@ class TodayRecipe {
 enum TodayTabType { full, near }
 
 class TodayService extends ChangeNotifier {
+		Future<void> loadHealthyRecipes() async {
+			_loading = true;
+			_loadingTab = TodayTabType.near;
+			notifyListeners();
+			await Future.delayed(const Duration(milliseconds: 300));
+			_near = [
+				TodayRecipe(
+					name: 'Salad cá hồi',
+					timeMinutes: 20,
+					imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+					ingredients: [
+						TodayIngredient(name: 'Cá hồi', quantity: 150, unit: 'g'),
+						TodayIngredient(name: 'Rau xà lách', quantity: 1, unit: 'bó'),
+						TodayIngredient(name: 'Dầu olive', quantity: 1, unit: 'muỗng'),
+					],
+					missingIngredients: [],
+				),
+				TodayRecipe(
+					name: 'Súp bí đỏ',
+					timeMinutes: 30,
+					imageUrl: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1200&q=80',
+					ingredients: [
+						TodayIngredient(name: 'Bí đỏ', quantity: 200, unit: 'g'),
+						TodayIngredient(name: 'Sữa tươi', quantity: 100, unit: 'ml'),
+						TodayIngredient(name: 'Hành tây', quantity: 1, unit: 'củ'),
+					],
+					missingIngredients: [],
+				),
+				TodayRecipe(
+					name: 'Ức gà áp chảo',
+					timeMinutes: 25,
+					imageUrl: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1200&q=80',
+					ingredients: [
+						TodayIngredient(name: 'Ức gà', quantity: 200, unit: 'g'),
+						TodayIngredient(name: 'Bông cải xanh', quantity: 100, unit: 'g'),
+						TodayIngredient(name: 'Dầu olive', quantity: 1, unit: 'muỗng'),
+					],
+					missingIngredients: [],
+				),
+			];
+			_selectedNearIndex = _near.isEmpty ? -1 : 0;
+			_loading = false;
+			_loadingTab = null;
+			notifyListeners();
+		}
 	static final TodayService instance = TodayService._();
 	static const bool _enableFallback = false;
 	static const int _fullMax = 3;
@@ -178,6 +224,8 @@ class TodayService extends ChangeNotifier {
 				if (refresh) 'refresh': 'true'
 			},
 		);
+		print('[API] /recipes/today?tab=${_tabParam(tab)} status: ${res.statusCode}');
+		print('[API] body: ${res.body}');
 		if (res.statusCode != 200) {
 			throw Exception(_extractError(res));
 		}
@@ -551,13 +599,28 @@ class TodayService extends ChangeNotifier {
 	}
 
 	Future<void> cookRecipe(TodayRecipe recipe, {bool addMissing = true}) async {
+		final missingKeys = recipe.missingIngredients.map((e) => e.key).toSet();
+		final availableIngredients = recipe.ingredients
+			.where((e) => !missingKeys.contains(e.key))
+			.toList();
+
 		final res = await ApiClient.post(
 			'/recipes/cook',
-			{'recipeName': recipe.name, 'recipeSource': 'AI'},
+			{
+				'recipeName': recipe.name,
+				'recipeSource': 'AI',
+				'ingredients': availableIngredients
+					.map((e) => {
+						'name': e.name,
+						'quantity': e.quantity <= 0 ? 1 : e.quantity,
+						'unit': e.unit,
+					})
+					.toList(),
+			},
 			auth: true,
 		);
 		if (res.statusCode != 200) {
-			throw Exception('Failed to save cooking history');
+			throw Exception(_extractError(res));
 		}
 
 		if (addMissing && recipe.missingIngredients.isNotEmpty) {
@@ -565,9 +628,36 @@ class TodayService extends ChangeNotifier {
 		}
 	}
 
-	Future<void> addMissingIngredients(List<TodayIngredient> missing) async {
+	Future<void> addMissingIngredients(List<TodayIngredient> missing, {String? recipeName}) async {
 		if (missing.isEmpty) return;
+		// Nếu có tên món ăn, tạo shopping list mới
+		if (recipeName != null && recipeName.isNotEmpty) {
+			final shoppingService = await _getShoppingService();
+			final newList = await shoppingService.createList(
+				name: recipeName,
+				planDate: DateTime.now(),
+			);
+			if (newList != null) {
+				for (final ingredient in missing) {
+					await shoppingService.addManualItem(
+						listId: newList.id,
+						name: ingredient.name,
+						quantity: ingredient.quantity <= 0 ? 1 : ingredient.quantity,
+						unit: ingredient.unit,
+					);
+				}
+				return;
+			}
+		}
 		await _addMissingIngredients(missing);
+	}
+
+	Future<dynamic> _getShoppingService() async {
+		return await Future.value(await (await importShoppingService()));
+	}
+
+	Future<ShoppingService> importShoppingService() async {
+		return Future.value(ShoppingService.instance);
 	}
 
 	Future<void> addMissingIngredient(TodayIngredient ingredient) async {

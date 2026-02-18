@@ -321,11 +321,13 @@ Rules:
 - Generate {{count}} distinct recipe items.
 - Avoid any recipe names present in this list: {{recentJson}}
 - Use common Vietnamese dishes where possible.
+- Recipe name must be in Vietnamese with proper diacritics (e.g., "Canh chua cá", "Thịt kho trứng").
 - {{constraint}}
 - When you use a pantry ingredient, the name must exactly match a pantry keyword (no synonyms, no partial names).
 - timeMinutes must be an integer (15-90).
 - imageUrl must be a public https image URL (Unsplash or Pexels) that matches the dish.
 - ingredients must be a realistic list of needed ingredients for the dish.
+- quantity and unit must be estimated for exactly 1 serving (1 suất) as the base amount.
 - If quantity or unit is unknown, use quantity 1 and unit "".
 
 Available pantry ingredients (may be partial): {{ingredientsJson}}

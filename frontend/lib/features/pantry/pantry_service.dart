@@ -123,6 +123,15 @@ class PantryService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> clearAllItems() async {
+    final res = await ApiClient.delete('/ingredients/all', auth: true);
+    if (res.statusCode != 200) {
+      throw Exception('Failed to clear ingredients');
+    }
+    _items.clear();
+    notifyListeners();
+  }
+
   PantryItemModel _fromApi(Map<String, dynamic> item) {
     final categoryRaw = (item['category'] ?? item['type'] ?? '').toString();
     return PantryItemModel(
