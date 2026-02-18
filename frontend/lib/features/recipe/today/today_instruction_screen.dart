@@ -24,7 +24,6 @@ class TodayInstructionScreen extends StatefulWidget {
 
 class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
   bool _loading = false;
-  String? _error;
   List<String> _summarySteps = [];
   List<String> _detailedSteps = [];
 
@@ -94,7 +93,6 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
     if (_loading) return;
     setState(() {
       _loading = true;
-      _error = null;
     });
 
     try {
@@ -128,7 +126,6 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
       }
     } catch (err) {
       final errorMsg = err.toString().replaceFirst('Exception: ', '');
-      setState(() => _error = errorMsg);
       if (mounted && errorMsg.isNotEmpty) {
         // ignore: use_build_context_synchronously
         showTopSnackBar(context, errorMsg, isError: true);

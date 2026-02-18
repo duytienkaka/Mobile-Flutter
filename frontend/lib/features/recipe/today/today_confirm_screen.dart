@@ -1,8 +1,6 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:frontend/core/widgets/top_snackbar.dart';
-import '../../../core/api/api_client.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -26,7 +24,6 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
   int _servings = 1;
 
   List<String> _missingKeys = [];
-  List<TodayIngredient> _missingIngredients = [];
 
   @override
   void initState() {
@@ -50,7 +47,6 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
       }
     }
     setState(() {
-      _missingIngredients = missing;
       _missingKeys = missingKeys;
     });
   }
@@ -465,16 +461,6 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
     }
   }
 
-  Future<Set<String>> _getPantryKeys() async {
-    final res = await ApiClient.get('/ingredients/all');
-    if (res.statusCode != 200) return {};
-    final data = jsonDecode(res.body);
-    if (data is! List) return {};
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map((item) => TodayIngredient.fromJson(item).key)
-        .toSet();
-  }
 
   Future<void> _addSingleMissing(TodayIngredient item) async {
     setState(() => _saving = true);
