@@ -1,6 +1,4 @@
-# =========================
-# General
-# =========================
+# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -14,45 +12,43 @@
 .swiftpm/
 migrate_working_dir/
 
-# =========================
-# IDE
-# =========================
-.idea/
-.vs/
+# IntelliJ related
 *.iml
 *.ipr
 *.iws
-*.user
-*.suo
+.idea/
 
-# Uncomment nếu không muốn commit VSCode settings
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
 #.vscode/
 
-# =========================
-# Flutter / Dart
-# =========================
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
 .dart_tool/
-.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-build/
-coverage/
-**/doc/api/
-**/ios/Flutter/.last_build_id
+/build/
+/coverage/
 
-# Android build
-/android/app/debug/
-/android/app/profile/
-/android/app/release/
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
 
 # =========================
-# .NET
+# .NET Backend
 # =========================
 bin/
 obj/
-
-# =========================
-# Node (nếu có sau này)
-# =========================
-node_modules/
+.vs/
+*.user
+*.suo

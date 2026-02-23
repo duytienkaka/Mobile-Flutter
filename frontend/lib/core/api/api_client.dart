@@ -1,20 +1,16 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
 class ApiClient {
   static String get baseUrl {
-    // if (Platform.isAndroid) {
-    //   return 'http://192.168.1.12:5074';
-    // }
     return 'http://localhost:5074';
   }
 
   static Future<Map<String, String>> _headers({bool auth = false}) async {
-    final headers = {
-      'Content-Type': 'application/json',
-    };
+    final headers = {'Content-Type': 'application/json'};
 
     if (auth) {
       final token = await TokenStorage.getToken();
@@ -46,9 +42,9 @@ class ApiClient {
     Map<String, String>? queryParameters,
   }) async {
     final headers = await _headers(auth: auth);
-    final uri = Uri.parse('$baseUrl$path').replace(
-      queryParameters: queryParameters,
-    );
+    final uri = Uri.parse(
+      '$baseUrl$path',
+    ).replace(queryParameters: queryParameters);
     return http.get(uri, headers: headers);
   }
 
@@ -65,15 +61,9 @@ class ApiClient {
     );
   }
 
-  static Future<http.Response> delete(
-    String path, {
-    bool auth = false,
-  }) async {
+  static Future<http.Response> delete(String path, {bool auth = false}) async {
     final headers = await _headers(auth: auth);
-    return http.delete(
-      Uri.parse('$baseUrl$path'),
-      headers: headers,
-    );
+    return http.delete(Uri.parse('$baseUrl$path'), headers: headers);
   }
 
   static Future<http.Response> multipart(
@@ -82,10 +72,7 @@ class ApiClient {
     Map<String, String>? fields,
     bool auth = false,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl$path'),
-    );
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
     if (auth) {
       final token = await TokenStorage.getToken();
       if (token != null) {

@@ -34,9 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadNameFromToken();
     _pantryService.addListener(_onPantryChanged);
-    _pantryService.loadItems();
     _homeService.addListener(_onHomeChanged);
-    _homeService.load();
+    // Defer loading to after first frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pantryService.loadItems();
+      _homeService.load();
+    });
   }
 
   @override
@@ -98,7 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: MainFab(onPressed: () => _openScreen(const PantryScreen())),
+      floatingActionButton: MainFab(
+        onPressed: () => _openScreen(const PantryScreen()),
+      ),
       bottomNavigationBar: MainBottomBar(
         currentIndex: 0,
         onHome: () => _openScreen(const HomeScreen()),
@@ -114,13 +119,12 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildHeader(fullName),
               const SizedBox(height: 20),
-              Text(context.tr('Món bạn có thể nấu'),
-                  style: AppTextStyles.subtitle),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 230,
-                child: _buildHomeRecipeSection(),
+              Text(
+                context.tr('Món bạn có thể nấu'),
+                style: AppTextStyles.subtitle,
               ),
+              const SizedBox(height: 12),
+              SizedBox(height: 230, child: _buildHomeRecipeSection()),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -146,8 +150,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
-                  style: AppTextStyles.subtitle),
+              Text(
+                context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
+                style: AppTextStyles.subtitle,
+              ),
               const SizedBox(height: 12),
               _buildHomeTipsSection(),
             ],
@@ -163,11 +169,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_homeService.recipes.isEmpty) {
-      final message = _homeService.error?.replaceFirst('Exception: ', '')
-          ?? context.tr('Chưa có kế hoạch');
-      return Center(
-        child: Text(message, style: AppTextStyles.caption),
-      );
+      final message =
+          _homeService.error?.replaceFirst('Exception: ', '') ??
+          context.tr('Chưa có kế hoạch');
+      return Center(child: Text(message, style: AppTextStyles.caption));
     }
 
     return ListView.separated(
@@ -216,7 +221,11 @@ class _HomeScreenState extends State<HomeScreen> {
       await TodayService.instance.addMissingIngredients(missing);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'))),
+        SnackBar(
+          content: Text(
+            context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'),
+          ),
+        ),
       );
       return;
     }
@@ -241,7 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<TodayIngredient> _findMissingIngredients(List<TodayIngredient> requiredItems) {
+  List<TodayIngredient> _findMissingIngredients(
+    List<TodayIngredient> requiredItems,
+  ) {
     final pantryNames = _pantryService.items
         .map((item) => _normalizeName(item.name))
         .where((name) => name.isNotEmpty)
@@ -289,8 +300,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_homeService.tips.isEmpty) {
-      final message = _homeService.error?.replaceFirst('Exception: ', '')
-          ?? 'Hôm nay chưa có mẹo phù hợp.';
+      final message =
+          _homeService.error?.replaceFirst('Exception: ', '') ??
+          'Hôm nay chưa có mẹo phù hợp.';
       return Text(message, style: AppTextStyles.caption);
     }
 
@@ -315,8 +327,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
-      ? context.tr('Xin chào')
-      : '${context.tr('Xin chào')} $name';
+        ? context.tr('Xin chào')
+        : '${context.tr('Xin chào')} $name';
 
     return Row(
       children: [
@@ -330,17 +342,19 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Text(displayName, style: AppTextStyles.subtitle),
+              Text(displayName, style: AppTextStyles.subtitle),
               const SizedBox(height: 4),
-                Text(context.tr('Chào mừng trở lại'),
-                  style: AppTextStyles.caption),
+              Text(
+                context.tr('Chào mừng trở lại'),
+                style: AppTextStyles.caption,
+              ),
             ],
           ),
         ),
         IconButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SettingsScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           icon: const Icon(Icons.settings),
         ),
       ],
@@ -400,7 +414,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(999),
@@ -420,7 +437,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
+                      Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: AppColors.textMuted,
+                      ),
                       const SizedBox(width: 4),
                       Text(time, style: AppTextStyles.caption),
                     ],
@@ -446,7 +467,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   runSpacing: 6,
                   children: tags.map((tag) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(20),
@@ -460,17 +484,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: Text('$count nguyên liệu', style: AppTextStyles.caption),
+                      child: Text(
+                        '$count nguyên liệu',
+                        style: AppTextStyles.caption,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(999),
@@ -479,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text('Dễ', style: AppTextStyles.caption),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ],
@@ -556,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(message, style: AppTextStyles.body),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -607,8 +640,6 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 }
