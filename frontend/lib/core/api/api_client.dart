@@ -24,7 +24,7 @@ class ApiClient {
 
   static Future<http.Response> post(
     String path,
-    Map<String, dynamic> body, {
+    Map<String, dynamic>? body, {
     bool auth = false,
   }) async {
     final headers = await _headers(auth: auth);
@@ -32,7 +32,7 @@ class ApiClient {
     return http.post(
       Uri.parse('$baseUrl$path'),
       headers: headers,
-      body: jsonEncode(body),
+      body: body == null ? null : jsonEncode(body),
     );
   }
 
@@ -50,14 +50,14 @@ class ApiClient {
 
   static Future<http.Response> put(
     String path,
-    Map<String, dynamic> body, {
+    Map<String, dynamic>? body, {
     bool auth = false,
   }) async {
     final headers = await _headers(auth: auth);
     return http.put(
       Uri.parse('$baseUrl$path'),
       headers: headers,
-      body: jsonEncode(body),
+      body: body == null ? null : jsonEncode(body),
     );
   }
 
