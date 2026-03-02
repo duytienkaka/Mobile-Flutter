@@ -23,6 +23,7 @@ builder.Services.AddScoped<Backend.Auth.Services.JwtService>();
 builder.Services.AddHttpClient<GeminiService>();
 builder.Services.AddScoped<RecipeSuggestionService>();
 builder.Services.AddScoped<HomeAiService>();
+builder.Services.AddScoped<NotificationService>();
 
 // Allow the Flutter web app (any localhost port) to call the API during dev
 builder.Services.AddCors(options =>
