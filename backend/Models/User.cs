@@ -32,4 +32,5 @@ public class User
     public ICollection<ShoppingList> ShoppingLists { get; set; } = new List<ShoppingList>();
     public ICollection<CookingHistory> CookingHistories { get; set; } = new List<CookingHistory>();
     public ICollection<MealPlan> MealPlans { get; set; } = new List<MealPlan>();
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }
