@@ -43,15 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-backend/bin/
-backend/obj/
 
-# .NET
-backend/bin/
-backend/obj/
-
-# Flutter/Dart
-frontend/build/
-frontend/.dart_tool/
-frontend/.idea/
-frontend/.vscode/
+# =========================
+# .NET Backend
+# =========================
+bin/
+obj/
+.vs/
+*.user
+*.suo

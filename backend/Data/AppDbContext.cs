@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<CookingHistory> CookingHistories => Set<CookingHistory>();
     public DbSet<RecipeQuery> RecipeQueries => Set<RecipeQuery>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,7 @@ public class AppDbContext : DbContext
         ConfigureCookingHistory(modelBuilder);
         ConfigureRecipeQuery(modelBuilder);
         ConfigureMealPlan(modelBuilder);
+        ConfigureNotification(modelBuilder);
     }
     private static void ConfigureUser(ModelBuilder modelBuilder)
     {
@@ -232,5 +234,33 @@ public class AppDbContext : DbContext
 
         e.Property(x => x.CreatedAt)
             .HasDefaultValueSql("now()");
+    }
+
+    private static void ConfigureNotification(ModelBuilder modelBuilder)
+    {
+        var e = modelBuilder.Entity<Notification>();
+
+        e.ToTable("Notifications");
+
+        e.HasKey(x => x.Id);
+
+        e.Property(x => x.Title)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        e.Property(x => x.Body)
+            .IsRequired()
+            .HasMaxLength(500);
+
+        e.Property(x => x.IsRead)
+            .HasDefaultValue(false);
+
+        e.Property(x => x.CreatedAt)
+            .HasDefaultValueSql("now()");
+
+        e.HasOne(x => x.User)
+            .WithMany(u => u.Notifications)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

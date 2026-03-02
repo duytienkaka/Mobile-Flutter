@@ -8,6 +8,7 @@ import '../core/l10n/app_localizations.dart';
 import '../features/notification/notification_screen.dart';
 import '../features/pantry/pantry_screen.dart';
 import '../features/pantry/pantry_service.dart';
+import '../features/pantry/pantry_item_model.dart';
 import '../features/shopping/shopping_screen.dart';
 import '../features/navigation/main_bottom_nav.dart';
 import '../features/settings/settings_screen.dart';
@@ -26,32 +27,25 @@ class _HomeScreenState extends State<HomeScreen> {
   String? fullName;
   final PantryService _pantryService = PantryService.instance;
   final HomeAiService _homeService = HomeAiService.instance;
-  int _expiringSoonCount = 0;
-  int _expiredCount = 0;
+  String _searchQuery = '';
+  bool _hasTriedGenerate = false;
 
   @override
   void initState() {
     super.initState();
     _loadNameFromToken();
-    _pantryService.addListener(_onPantryChanged);
-    _pantryService.loadItems();
     _homeService.addListener(_onHomeChanged);
-    _homeService.load();
+    // Defer loading to after first frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pantryService.loadItems();
+      _homeService.load();
+    });
   }
 
   @override
   void dispose() {
-    _pantryService.removeListener(_onPantryChanged);
     _homeService.removeListener(_onHomeChanged);
     super.dispose();
-  }
-
-  void _onPantryChanged() {
-    if (!mounted) return;
-    setState(() {
-      _expiringSoonCount = _pantryService.expiringSoonCount;
-      _expiredCount = _pantryService.expiredCount;
-    });
   }
 
   void _onHomeChanged() {
@@ -93,12 +87,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  bool get _isEmptyState {
+    return !_homeService.isLoading &&
+        _homeService.recipes.isEmpty &&
+        _pantryService.items.isEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: MainFab(onPressed: () => _openScreen(const PantryScreen())),
+      floatingActionButton: MainFab(
+        onPressed: () => _openScreen(const PantryScreen()),
+      ),
       bottomNavigationBar: MainBottomBar(
         currentIndex: 0,
         onHome: () => _openScreen(const HomeScreen()),
@@ -107,51 +109,75 @@ class _HomeScreenState extends State<HomeScreen> {
         onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(fullName),
-              const SizedBox(height: 20),
-              Text(context.tr('Món bạn có thể nấu'),
-                  style: AppTextStyles.subtitle),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 230,
-                child: _buildHomeRecipeSection(),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      label: context.tr('Sắp hết hạn'),
-                      value: '$_expiringSoonCount',
-                      background: AppColors.surfaceSoft,
-                      icon: Icons.warning_amber_rounded,
-                      iconColor: AppColors.warning,
+        child: _isEmptyState
+            ? _buildEmptyState()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(fullName),
+                    const SizedBox(height: 20),
+                    _buildSearchBar(),
+                    const SizedBox(height: 20),
+                    Text(
+                      context.tr('Món bạn có thể nấu'),
+                      style: AppTextStyles.subtitle,
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildStatCard(
-                      label: context.tr('Đã hết hạn'),
-                      value: '$_expiredCount',
-                      background: AppColors.surface,
-                      icon: Icons.error_outline,
-                      iconColor: AppColors.danger,
+                    const SizedBox(height: 12),
+                    SizedBox(height: 230, child: _buildHomeRecipeSection()),
+                    const SizedBox(height: 18),
+                    Text(
+                      context.tr('Sắp hết hạn'),
+                      style: AppTextStyles.subtitle,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    _buildExpiringSoonSection(),
+                    const SizedBox(height: 20),
+                    Text(
+                      context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
+                      style: AppTextStyles.subtitle,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildHomeTipsSection(),
+                  ],
+                ),
               ),
-              const SizedBox(height: 20),
-              Text(context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
-                  style: AppTextStyles.subtitle),
-              const SizedBox(height: 12),
-              _buildHomeTipsSection(),
-            ],
-          ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.kitchen, size: 96, color: AppColors.textMuted),
+            const SizedBox(height: 24),
+            Text(
+              context.tr('Không có dữ liệu'),
+              style: AppTextStyles.title,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.tr(
+                'Hãy thêm nguyên liệu vào tủ lạnh để nhận gợi ý công thức.',
+              ),
+              style: AppTextStyles.body,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => _openScreen(const PantryScreen()),
+              child: Text(context.tr('Thêm nguyên liệu')),
+            ),
+          ],
         ),
       ),
     );
@@ -162,20 +188,79 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // Filter recipes based on search query
+    final filteredRecipes = _homeService.recipes
+        .where(
+          (recipe) =>
+              recipe.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              recipe.tags.any(
+                (tag) => tag.toLowerCase().contains(_searchQuery.toLowerCase()),
+              ),
+        )
+        .toList();
+
     if (_homeService.recipes.isEmpty) {
-      final message = _homeService.error?.replaceFirst('Exception: ', '')
-          ?? context.tr('Chưa có kế hoạch');
+      final message =
+          _homeService.error?.replaceFirst('Exception: ', '') ??
+          context.tr('Chưa có kế hoạch');
+      return Center(child: Text(message, style: AppTextStyles.caption));
+    }
+
+    // If no filtered results and search is active, try to generate recipe
+    if (filteredRecipes.isEmpty && _searchQuery.isNotEmpty) {
+      // Generate recipe on first attempt
+      if (!_hasTriedGenerate) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _homeService.generateRecipeByName(_searchQuery);
+            setState(() => _hasTriedGenerate = true);
+          }
+        });
+      }
+
+      // Show loading while generating
+      if (_homeService.isGeneratingRecipe) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      // Show generated recipe if available
+      if (_homeService.generatedRecipe != null) {
+        final recipe = _homeService.generatedRecipe!;
+        return GestureDetector(
+          onTap: () => _handleRecipeTap(recipe),
+          child: _buildAiRecipeCard(
+            title: recipe.name,
+            tags: recipe.tags,
+            time: '${recipe.timeMinutes} Min',
+            count: recipe.ingredientCount,
+          ),
+        );
+      }
+
+      // Show error if generation failed
+      if (_homeService.error != null) {
+        return Center(
+          child: Text(
+            context.tr('Không thể tạo công thức'),
+            style: AppTextStyles.caption,
+          ),
+        );
+      }
+
       return Center(
-        child: Text(message, style: AppTextStyles.caption),
+        child: Text(
+          context.tr('Không tìm thấy công thức nào'),
+          style: AppTextStyles.caption,
+        ),
       );
     }
 
     return ListView.separated(
       scrollDirection: Axis.horizontal,
-      itemCount: _homeService.recipes.length,
-      separatorBuilder: (_, __) => const SizedBox(width: 14),
+      itemCount: filteredRecipes.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 14),
       itemBuilder: (_, index) {
-        final recipe = _homeService.recipes[index];
+        final recipe = filteredRecipes[index];
         return GestureDetector(
           onTap: () => _handleRecipeTap(recipe),
           child: _buildAiRecipeCard(
@@ -187,6 +272,135 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Widget _buildSearchBar() {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: context.tr('Tìm kiếm công thức'),
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _searchQuery = '';
+                    _hasTriedGenerate = false;
+                  });
+                },
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: AppColors.border),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+      ),
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value;
+          _hasTriedGenerate = false;
+        });
+      },
+    );
+  }
+
+  Widget _buildExpiringSoonSection() {
+    final today = DateTime.now();
+    final expiringSoonItems = _pantryService.items.where((item) {
+      final expiredAt = item.expiredAt;
+      if (expiredAt == null) return false;
+      final normalized = _normalizeDate(expiredAt);
+      if (normalized.isBefore(_normalizeDate(today))) return false;
+      return normalized.difference(_normalizeDate(today)).inDays < 4;
+    }).toList();
+
+    if (expiringSoonItems.isEmpty) {
+      return Center(
+        child: Text(
+          context.tr('Không có mục nào sắp hết hạn'),
+          style: AppTextStyles.caption,
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.9,
+      ),
+      itemCount: expiringSoonItems.length,
+      itemBuilder: (_, index) {
+        final item = expiringSoonItems[index];
+        return _buildExpiringSoonCard(item);
+      },
+    );
+  }
+
+  Widget _buildExpiringSoonCard(PantryItemModel item) {
+    final expiryDate = item.expiredAt ?? DateTime.now();
+    return GestureDetector(
+      onTap: () => _openScreen(const PantryScreen()),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceSoft,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(14),
+                  topRight: Radius.circular(14),
+                ),
+              ),
+              child: Icon(Icons.image, color: AppColors.textMuted, size: 30),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption,
+                    ),
+                    Text(
+                      '${expiryDate.day.toString().padLeft(2, '0')}/${expiryDate.month.toString().padLeft(2, '0')}/${expiryDate.year}',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.warning,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
   }
 
   Future<void> _handleRecipeTap(HomeAiRecipe recipe) async {
@@ -216,7 +430,11 @@ class _HomeScreenState extends State<HomeScreen> {
       await TodayService.instance.addMissingIngredients(missing);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'))),
+        SnackBar(
+          content: Text(
+            context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'),
+          ),
+        ),
       );
       return;
     }
@@ -241,7 +459,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<TodayIngredient> _findMissingIngredients(List<TodayIngredient> requiredItems) {
+  List<TodayIngredient> _findMissingIngredients(
+    List<TodayIngredient> requiredItems,
+  ) {
     final pantryNames = _pantryService.items
         .map((item) => _normalizeName(item.name))
         .where((name) => name.isNotEmpty)
@@ -289,8 +509,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_homeService.tips.isEmpty) {
-      final message = _homeService.error?.replaceFirst('Exception: ', '')
-          ?? 'Hôm nay chưa có mẹo phù hợp.';
+      final message =
+          _homeService.error?.replaceFirst('Exception: ', '') ??
+          'Hôm nay chưa có mẹo phù hợp.';
       return Text(message, style: AppTextStyles.caption);
     }
 
@@ -315,8 +536,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
-      ? context.tr('Xin chào')
-      : '${context.tr('Xin chào')} $name';
+        ? context.tr('Xin chào')
+        : '${context.tr('Xin chào')} $name';
 
     return Row(
       children: [
@@ -330,17 +551,19 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                Text(displayName, style: AppTextStyles.subtitle),
+              Text(displayName, style: AppTextStyles.subtitle),
               const SizedBox(height: 4),
-                Text(context.tr('Chào mừng trở lại'),
-                  style: AppTextStyles.caption),
+              Text(
+                context.tr('Chào mừng trở lại'),
+                style: AppTextStyles.caption,
+              ),
             ],
           ),
         ),
         IconButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SettingsScreen()),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           icon: const Icon(Icons.settings),
         ),
       ],
@@ -398,9 +621,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(999),
@@ -420,7 +647,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Icon(Icons.access_time, size: 12, color: AppColors.textMuted),
+                      Icon(
+                        Icons.access_time,
+                        size: 12,
+                        color: AppColors.textMuted,
+                      ),
                       const SizedBox(width: 4),
                       Text(time, style: AppTextStyles.caption),
                     ],
@@ -446,7 +677,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   runSpacing: 6,
                   children: tags.map((tag) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(20),
@@ -460,17 +694,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: Text('$count nguyên liệu', style: AppTextStyles.caption),
+                      child: Text(
+                        '$count nguyên liệu',
+                        style: AppTextStyles.caption,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceSoft,
                         borderRadius: BorderRadius.circular(999),
@@ -479,44 +722,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text('Dễ', style: AppTextStyles.caption),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  static Widget _buildStatCard({
-    required String label,
-    required String value,
-    required Color background,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
-          const SizedBox(height: 10),
-          Text(value, style: AppTextStyles.title),
-          Text(label, style: AppTextStyles.caption),
-        ],
       ),
     );
   }
@@ -556,7 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(message, style: AppTextStyles.body),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -607,8 +817,6 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 }

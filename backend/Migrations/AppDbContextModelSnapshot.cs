@@ -136,6 +136,42 @@ namespace backend.Migrations
                     b.ToTable("MealPlans", (string)null);
                 });
 
+            modelBuilder.Entity("Backend.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications", (string)null);
+                });
+
             modelBuilder.Entity("Backend.Models.OtpCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -352,6 +388,17 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Backend.Models.Notification", b =>
+                {
+                    b.HasOne("Backend.Models.User", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Backend.Models.RecipeQuery", b =>
                 {
                     b.HasOne("Backend.Models.User", "User")
@@ -397,6 +444,8 @@ namespace backend.Migrations
                     b.Navigation("Ingredients");
 
                     b.Navigation("MealPlans");
+
+                    b.Navigation("Notifications");
 
                     b.Navigation("ShoppingLists");
                 });
