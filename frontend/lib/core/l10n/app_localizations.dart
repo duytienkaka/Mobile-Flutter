@@ -187,6 +187,8 @@ class AppLocalizations {
     'Không': 'Cancel',
     'Sử dụng': 'Use',
     'Đã cập nhật ảnh đại diện': 'Avatar updated',
+    'Thức ăn cũ': 'Leftover food',
+    'Bún/Bánh tráng': 'Noodles/Rice paper',
   };
 
   String t(String key) {

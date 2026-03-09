@@ -224,8 +224,6 @@ class TodayService extends ChangeNotifier {
 				if (refresh) 'refresh': 'true'
 			},
 		);
-		print('[API] /recipes/today?tab=${_tabParam(tab)} status: ${res.statusCode}');
-		print('[API] body: ${res.body}');
 		if (res.statusCode != 200) {
 			throw Exception(_extractError(res));
 		}
@@ -642,8 +640,8 @@ class TodayService extends ChangeNotifier {
 					await shoppingService.addManualItem(
 						listId: newList.id,
 						name: ingredient.name,
-						quantity: ingredient.quantity <= 0 ? 1 : ingredient.quantity,
-						unit: ingredient.unit,
+						quantity: 0,
+						unit: '',
 					);
 				}
 				return;
@@ -653,7 +651,7 @@ class TodayService extends ChangeNotifier {
 	}
 
 	Future<dynamic> _getShoppingService() async {
-		return await Future.value(await (await importShoppingService()));
+		return await Future.value((await importShoppingService()));
 	}
 
 	Future<ShoppingService> importShoppingService() async {

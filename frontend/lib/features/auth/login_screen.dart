@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         PageRouteBuilder(
                           transitionDuration: const Duration(milliseconds: 350),
                           reverseTransitionDuration: const Duration(milliseconds: 350),
-                          pageBuilder: (_, animation, __) => FadeTransition(
+                          pageBuilder: (_, animation, _) => FadeTransition(
                             opacity: animation,
                             child: const RegisterScreen(),
                           ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:frontend/features/recipe/recipe_screen.dart';
+import 'package:frontend/features/settings/settings_service.dart';
 import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
@@ -15,6 +16,7 @@ import '../features/settings/settings_screen.dart';
 import '../features/recipe/today/today_instruction_screen.dart';
 import '../features/recipe/today/today_service.dart';
 import 'home_service.dart';
+import '../core/widgets/top_snackbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,8 +24,24 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
+    Widget _buildEmptyState() {
+      return Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.hourglass_empty, size: 64, color: AppColors.border),
+              const SizedBox(height: 16),
+              Text(
+                context.tr('Không có dữ liệu'),
+                style: AppTextStyles.caption,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   String? fullName;
   final PantryService _pantryService = PantryService.instance;
   final HomeAiService _homeService = HomeAiService.instance;
@@ -150,45 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.kitchen, size: 96, color: AppColors.textMuted),
-            const SizedBox(height: 24),
-            Text(
-              context.tr('Không có dữ liệu'),
-              style: AppTextStyles.title,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              context.tr(
-                'Hãy thêm nguyên liệu vào tủ lạnh để nhận gợi ý công thức.',
-              ),
-              style: AppTextStyles.body,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _openScreen(const PantryScreen()),
-              child: Text(context.tr('Thêm nguyên liệu')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildHomeRecipeSection() {
-    if (_homeService.isLoading && _homeService.recipes.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    // Filter recipes based on search query
     final filteredRecipes = _homeService.recipes
         .where(
           (recipe) =>
@@ -327,20 +307,23 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.9,
+    return SizedBox(
+      height: 240,
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.9,
+        ),
+        itemCount: expiringSoonItems.length,
+        itemBuilder: (_, index) {
+          final item = expiringSoonItems[index];
+          return _buildExpiringSoonCard(item);
+        },
       ),
-      itemCount: expiringSoonItems.length,
-      itemBuilder: (_, index) {
-        final item = expiringSoonItems[index];
-        return _buildExpiringSoonCard(item);
-      },
     );
   }
 
@@ -429,12 +412,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (missing.isNotEmpty) {
       await TodayService.instance.addMissingIngredients(missing);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'),
-          ),
-        ),
+      showTopSnackBar(
+        context,
+        context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'),
+        isError: false,
       );
       return;
     }
@@ -539,12 +520,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ? context.tr('Xin chào')
         : '${context.tr('Xin chào')} $name';
 
+    final avatarUrl = null;
+    final avatarImage = SettingsService.resolveAvatarUrl(avatarUrl);
+    final initials = (name == null || name.isEmpty) ? 'U' : name[0].toUpperCase();
+
     return Row(
       children: [
         CircleAvatar(
           radius: 22,
           backgroundColor: AppColors.primarySoft,
-          child: Icon(Icons.person, color: AppColors.surface),
+          backgroundImage: avatarImage != null ? NetworkImage(avatarImage) : null,
+          child: avatarImage == null
+              ? Text(
+                  initials,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                )
+              : null,
         ),
         const SizedBox(width: 12),
         Expanded(

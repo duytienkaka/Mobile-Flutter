@@ -1,12 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
 class ApiClient {
   static String get baseUrl {
-    return 'http://localhost:5074';
+    return 'http://192.168.27.3:5074';
   }
 
   static Future<Map<String, String>> _headers({bool auth = false}) async {
