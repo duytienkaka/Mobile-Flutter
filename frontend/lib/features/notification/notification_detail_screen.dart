@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/l10n/app_localizations.dart';
-import '../../core/widgets/back_header.dart';
 import 'notification_service.dart';
 
 class NotificationDetailScreen extends StatefulWidget {
@@ -70,7 +69,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                     child: Icon(
                       Icons.notifications,
                       size: 80,
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -85,7 +84,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_notification.title, style: AppTextStyles.heading),
+                        Text(_notification.title, style: AppTextStyles.title),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -103,7 +102,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                                 : context.tr('Chưa đọc'),
                             style: AppTextStyles.caption.copyWith(
                               color: _notification.isRead
-                                  ? AppColors.text
+                                  ? AppColors.textSecondary
                                   : Colors.white,
                             ),
                           ),
@@ -149,7 +148,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(
                           context.tr('Quay lại'),
-                          style: AppTextStyles.button.copyWith(
+                          style: AppTextStyles.body.copyWith(
                             color: Colors.white,
                           ),
                         ),

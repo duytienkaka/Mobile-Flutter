@@ -244,7 +244,7 @@ class _PlannerTabState extends State<PlannerTab> {
 												setState(() => selectedDate = day),
 									);
 								},
-								separatorBuilder: (_, __) => const SizedBox(width: 10),
+								separatorBuilder: (_, _) => const SizedBox(width: 10),
 								itemCount: days.length,
 							),
 						),

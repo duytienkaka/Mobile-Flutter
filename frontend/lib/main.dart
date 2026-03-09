@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
         ThemeController.instance,
         LocaleController.instance,
       ]),
-      builder: (_, __) => MaterialApp(
+      builder: (_, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

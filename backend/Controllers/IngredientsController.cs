@@ -137,6 +137,7 @@ public class IngredientsController : ControllerBase
         {
             Id = entity.Id,
             Name = entity.Name,
+            Category = entity.Category,
             Quantity = entity.Quantity,
             Unit = entity.Unit,
             ExpiredAt = entity.ExpiredAt
