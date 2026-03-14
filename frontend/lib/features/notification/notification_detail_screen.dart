@@ -85,7 +85,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_notification.title, style: AppTextStyles.heading),
+                        Text(_notification.title, style: AppTextStyles.title),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -103,7 +103,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                                 : context.tr('Chưa đọc'),
                             style: AppTextStyles.caption.copyWith(
                               color: _notification.isRead
-                                  ? AppColors.text
+                                  ? AppColors.textPrimary
                                   : Colors.white,
                             ),
                           ),
@@ -149,7 +149,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(
                           context.tr('Quay lại'),
-                          style: AppTextStyles.button.copyWith(
+                          style: AppTextStyles.body.copyWith(
                             color: Colors.white,
                           ),
                         ),

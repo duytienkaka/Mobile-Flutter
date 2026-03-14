@@ -1,5 +1,4 @@
 using Backend.Data;
-using Backend.DTOs;
 using Backend.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,58 +6,80 @@ namespace Backend.Services;
 
 public class NotificationService
 {
-    private readonly AppDbContext _db;
-    public NotificationService(AppDbContext db)
+    private readonly AppDbContext _context;
+
+    public NotificationService(AppDbContext context)
     {
-        _db = db;
+        _context = context;
     }
 
-    public async Task<List<NotificationDto>> GetNotificationsAsync(Guid userId, CancellationToken ct)
+    public async Task<Notification> CreateNotificationAsync(Guid userId, string title, string body)
     {
-        return await _db.Set<Notification>()
-            .Where(n => n.UserId == userId)
-            .OrderByDescending(n => n.CreatedAt)
-            .Select(n => new NotificationDto
-            {
-                Id = n.Id,
-                Title = n.Title,
-                Body = n.Body,
-                IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
-            })
-            .ToListAsync(ct);
-    }
-
-    public async Task<int> GetUnreadCountAsync(Guid userId, CancellationToken ct)
-    {
-        return await _db.Set<Notification>()
-            .Where(n => n.UserId == userId && !n.IsRead)
-            .CountAsync(ct);
-    }
-
-    public async Task MarkAsReadAsync(Guid userId, Guid notificationId, CancellationToken ct)
-    {
-        var notif = await _db.Set<Notification>()
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId, ct);
-        if (notif == null) return;
-        if (!notif.IsRead)
-        {
-            notif.IsRead = true;
-            await _db.SaveChangesAsync(ct);
-        }
-    }
-
-    public async Task AddNotificationAsync(Guid userId, string title, string body, CancellationToken ct)
-    {
-        var entity = new Notification
+        var notification = new Notification
         {
             UserId = userId,
             Title = title,
             Body = body,
-            CreatedAt = DateTime.UtcNow,
-            IsRead = false
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
         };
-        _db.Set<Notification>().Add(entity);
-        await _db.SaveChangesAsync(ct);
+
+        _context.Notifications.Add(notification);
+        await _context.SaveChangesAsync();
+
+        return notification;
+    }
+
+    public async Task<List<Notification>> GetUserNotificationsAsync(Guid userId)
+    {
+        return await _context.Notifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<bool> MarkAsReadAsync(Guid notificationId, Guid userId)
+    {
+        var notification = await _context.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+
+        if (notification == null)
+            return false;
+
+        notification.IsRead = true;
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<int> GetUnreadCountAsync(Guid userId)
+    {
+        return await _context.Notifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .CountAsync();
+    }
+
+    public async Task<bool> DeleteNotificationAsync(Guid notificationId, Guid userId)
+    {
+        var notification = await _context.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+
+        if (notification == null)
+            return false;
+
+        _context.Notifications.Remove(notification);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<User> GetTestUserAsync()
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "test@gmail.com");
+        if (user == null)
+        {
+            throw new Exception("Test user not found. Please run seed first.");
+        }
+        return user;
     }
 }

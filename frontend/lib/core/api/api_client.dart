@@ -6,7 +6,13 @@ import '../storage/token_storage.dart';
 
 class ApiClient {
   static String get baseUrl {
-    return 'http://localhost:5074';
+    // When running on Android emulator, localhost refers to the emulator itself.
+    // Use 10.0.2.2 to reach the host machine.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5075';
+    }
+
+    return 'http://localhost:5075';
   }
 
   static Future<Map<String, String>> _headers({bool auth = false}) async {

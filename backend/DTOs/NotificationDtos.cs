@@ -1,8 +1,6 @@
-using System;
-
 namespace Backend.DTOs;
 
-public class NotificationDto
+public class NotificationResponse
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = "";
@@ -11,7 +9,8 @@ public class NotificationDto
     public DateTime CreatedAt { get; set; }
 }
 
-public class MarkNotificationReadDto
+public class NotificationCreateRequest
 {
-    public Guid Id { get; set; }
+    public string Title { get; set; } = "";
+    public string Body { get; set; } = "";
 }

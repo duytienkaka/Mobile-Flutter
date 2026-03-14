@@ -1,6 +1,7 @@
 using Backend.Data;
 using Backend.DTOs;
 using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,12 @@ namespace Backend.Controllers;
 public class ShoppingController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly NotificationService _notificationService;
 
-    public ShoppingController(AppDbContext db)
+    public ShoppingController(AppDbContext db, NotificationService notificationService)
     {
         _db = db;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -137,6 +140,13 @@ public class ShoppingController : ControllerBase
         _db.ShoppingItems.Add(item);
         await _db.SaveChangesAsync();
 
+        // Create notification for new shopping item
+        await _notificationService.CreateNotificationAsync(
+            userId.Value,
+            "Món mới trong danh sách",
+            $"Đã thêm {item.Name} ({item.Quantity} {item.Unit}) vào danh sách {list.Name}"
+        );
+
         return CreatedAtAction(nameof(GetList), new { id = list.Id }, MapItem(item));
     }
 
@@ -165,6 +175,13 @@ public class ShoppingController : ControllerBase
 
         _db.ShoppingItems.Add(item);
         await _db.SaveChangesAsync();
+
+        // Create notification for new shopping item
+        await _notificationService.CreateNotificationAsync(
+            userId.Value,
+            "Món mới trong danh sách mua sắm",
+            $"Đã thêm {item.Name} ({item.Quantity} {item.Unit}) vào danh sách hiện tại"
+        );
 
         return CreatedAtAction(nameof(GetCurrentList), new { id = list.Id }, MapItem(item));
     }

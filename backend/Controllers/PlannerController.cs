@@ -1,6 +1,7 @@
 using Backend.Data;
 using Backend.DTOs;
 using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,12 @@ namespace Backend.Controllers;
 public class PlannerController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly NotificationService _notificationService;
 
-    public PlannerController(AppDbContext db)
+    public PlannerController(AppDbContext db, NotificationService notificationService)
     {
         _db = db;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -69,6 +72,13 @@ public class PlannerController : ControllerBase
 
         _db.MealPlans.Add(entity);
         await _db.SaveChangesAsync();
+
+        // Create notification for new meal plan
+        await _notificationService.CreateNotificationAsync(
+            userId.Value,
+            "Kế hoạch bữa ăn mới",
+            $"Đã thêm {entity.RecipeName} cho bữa {entity.MealType} vào ngày {entity.Date:dd/MM/yyyy}"
+        );
 
         return CreatedAtAction(nameof(GetPlanById), new { id = entity.Id }, Map(entity));
     }
