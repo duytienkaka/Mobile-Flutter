@@ -31,7 +31,7 @@ class NotificationItem {
 
 class NotificationService {
   static Future<List<NotificationItem>> fetchNotifications() async {
-    final res = await ApiClient.get('/notifications', auth: true);
+    final res = await ApiClient.get('/api/notifications', auth: true);
     if (res.statusCode != 200) {
       throw Exception(_extractError(res));
     }
@@ -46,11 +46,18 @@ class NotificationService {
 
   static Future<void> markAsRead(String id) async {
     final res = await ApiClient.post(
-      '/notifications/read/$id',
+      '/api/notifications/$id/read',
       null,
       auth: true,
     );
     if (res.statusCode != 200) {
+      throw Exception(_extractError(res));
+    }
+  }
+
+  static Future<void> deleteNotification(String id) async {
+    final res = await ApiClient.delete('/api/notifications/$id', auth: true);
+    if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception(_extractError(res));
     }
   }

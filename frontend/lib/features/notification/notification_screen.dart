@@ -9,6 +9,7 @@ import '../pantry/pantry_screen.dart';
 import '../recipe/recipe_screen.dart';
 import '../shopping/shopping_screen.dart';
 import 'notification_service.dart';
+import 'notification_detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -19,11 +20,17 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   late Future<List<NotificationItem>> _notificationsFuture;
+  List<NotificationItem>? _notifications;
 
   @override
   void initState() {
     super.initState();
-    _notificationsFuture = NotificationService.fetchNotifications();
+    _notificationsFuture = NotificationService.fetchNotifications().then((
+      list,
+    ) {
+      _notifications = list;
+      return list;
+    });
   }
 
   @override
@@ -58,14 +65,39 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text(
-                        context.tr('Lỗi tải thông báo'),
-                        style: AppTextStyles.subtitle,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.tr('Lỗi tải thông báo'),
+                            style: AppTextStyles.subtitle,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr('Vui lòng thử lại.'),
+                            style: AppTextStyles.body,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _notificationsFuture =
+                                    NotificationService.fetchNotifications()
+                                        .then((list) {
+                                          _notifications = list;
+                                          return list;
+                                        });
+                              });
+                            },
+                            child: Text(context.tr('Tải lại')),
+                          ),
+                        ],
                       ),
                     );
                   }
 
-                  final notifications = snapshot.data ?? [];
+                  final notifications = _notifications ?? snapshot.data ?? [];
                   if (notifications.isEmpty) {
                     return Center(
                       child: Text(
@@ -82,11 +114,38 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       final notif = notifications[index];
                       return GestureDetector(
                         onTap: () async {
-                          await NotificationService.markAsRead(notif.id);
-                          setState(() {
-                            _notificationsFuture =
-                                NotificationService.fetchNotifications();
-                          });
+                          // Mark as read if not already read
+                          if (!notif.isRead) {
+                            try {
+                              await NotificationService.markAsRead(notif.id);
+                              setState(() {
+                                final idx = _notifications?.indexWhere(
+                                  (n) => n.id == notif.id,
+                                );
+                                if (idx != null && idx >= 0) {
+                                  _notifications?[idx] = NotificationItem(
+                                    id: notif.id,
+                                    title: notif.title,
+                                    body: notif.body,
+                                    isRead: true,
+                                    createdAt: notif.createdAt,
+                                  );
+                                }
+                              });
+                            } catch (e) {
+                              debugPrint(
+                                'Failed to mark notification as read: $e',
+                              );
+                            }
+                          }
+
+                          // Navigate to detail screen
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  NotificationDetailScreen(notification: notif),
+                            ),
+                          );
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(
@@ -123,15 +182,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (!notif.isRead)
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary,
-                                        shape: BoxShape.circle,
+                                  Row(
+                                    children: [
+                                      if (!notif.isRead)
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: AppColors.danger,
+                                          size: 20,
+                                        ),
+                                        onPressed: () =>
+                                            _deleteNotification(notif.id),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
-                                    ),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -159,6 +234,53 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteNotification(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('Xóa thông báo')),
+        content: Text(context.tr('Bạn có chắc muốn xóa thông báo này?')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.tr('Hủy')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: Text(context.tr('Xóa')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await NotificationService.deleteNotification(id);
+        setState(() {
+          _notifications?.removeWhere((n) => n.id == id);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr('Đã xóa thông báo')),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.tr('Không thể xóa thông báo: $e')),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    }
   }
 
   String _formatTime(DateTime dateTime) {

@@ -1,5 +1,6 @@
 using Backend.Data;
 using Backend.DTOs;
+using Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace Backend.Controllers;
 public class IngredientsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly NotificationService _notificationService;
 
-    public IngredientsController(AppDbContext db)
+    public IngredientsController(AppDbContext db, NotificationService notificationService)
     {
         _db = db;
+        _notificationService = notificationService;
     }
 
     [HttpGet]
@@ -59,6 +62,13 @@ public class IngredientsController : ControllerBase
         _db.Ingredients.Add(entity);
         await _db.SaveChangesAsync();
 
+        // Create notification for new ingredient
+        await _notificationService.CreateNotificationAsync(
+            userId.Value,
+            "Nguyên liệu mới",
+            $"Đã thêm {entity.Name} ({entity.Quantity} {entity.Unit}) vào tủ đồ"
+        );
+
         return Ok(Map(entity));
     }
 
@@ -85,6 +95,14 @@ public class IngredientsController : ControllerBase
             : DateTime.SpecifyKind(dto.ExpiredAt.Value, DateTimeKind.Utc);
 
         await _db.SaveChangesAsync();
+
+        // Create notification for updated ingredient
+        await _notificationService.CreateNotificationAsync(
+            userId.Value,
+            "Cập nhật nguyên liệu",
+            $"Đã cập nhật {entity.Name} ({entity.Quantity} {entity.Unit})"
+        );
+
         return Ok(Map(entity));
     }
 
@@ -121,6 +139,36 @@ public class IngredientsController : ControllerBase
         _db.Ingredients.RemoveRange(items);
         await _db.SaveChangesAsync();
         return Ok(new { deleted = items.Count });
+    }
+
+    [HttpPost]
+    [Route("test-ingredient")]
+    [AllowAnonymous]
+    public async Task<IActionResult> CreateTestIngredient()
+    {
+        var user = await _notificationService.GetTestUserAsync();
+
+        var entity = new Backend.Models.Ingredient
+        {
+            UserId = user.Id,
+            Name = "Test Ingredient",
+            Category = "Test",
+            Quantity = 1,
+            Unit = "kg",
+            ExpiredAt = DateTime.UtcNow.AddDays(1)
+        };
+
+        _db.Ingredients.Add(entity);
+        await _db.SaveChangesAsync();
+
+        // Create notification for new ingredient
+        await _notificationService.CreateNotificationAsync(
+            user.Id,
+            "Nguyên liệu mới",
+            $"Đã thêm {entity.Name} ({entity.Quantity} {entity.Unit}) vào tủ đồ"
+        );
+
+        return Ok(new { message = "Test ingredient created", ingredientId = entity.Id });
     }
 
     private Guid? GetUserId()

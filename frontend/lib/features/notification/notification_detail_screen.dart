@@ -102,7 +102,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
                                 : context.tr('Chưa đọc'),
                             style: AppTextStyles.caption.copyWith(
                               color: _notification.isRead
-                                  ? AppColors.textSecondary
+                                  ? AppColors.textPrimary
                                   : Colors.white,
                             ),
                           ),
