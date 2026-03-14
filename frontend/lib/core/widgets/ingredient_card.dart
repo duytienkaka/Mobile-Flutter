@@ -71,9 +71,9 @@ class IngredientCard extends StatelessWidget {
                       Expanded(
                         child: Center(
                           child: Icon(
-                            Icons.image_outlined,
+                            Icons.food_bank_outlined,
                             size: 96,
-                            color: AppColors.textMuted,
+                            color: AppColors.primary,
                           ),
                         ),
                       ),

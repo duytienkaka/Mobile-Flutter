@@ -137,7 +137,7 @@ class _TodayTabState extends State<TodayTab> {
                           : ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: recipes.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const SizedBox(width: 12),
                               itemBuilder: (_, index) => GestureDetector(
                                 onTap: () =>

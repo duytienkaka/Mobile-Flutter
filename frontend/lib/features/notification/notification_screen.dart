@@ -156,12 +156,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           decoration: BoxDecoration(
                             color: notif.isRead
                                 ? AppColors.surface
-                                : AppColors.primary.withOpacity(0.1),
+                                : AppColors.primary,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: notif.isRead
                                   ? AppColors.border
-                                  : AppColors.primary.withOpacity(0.3),
+                                  : AppColors.primary,
                             ),
                           ),
                           child: Column(

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../../core/l10n/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/ingredient_card.dart';
 import '../../core/widgets/top_snackbar.dart';
+import '../../core/widgets/app_text_field.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
@@ -11,6 +15,15 @@ import '../recipe/recipe_screen.dart';
 import '../shopping/shopping_screen.dart';
 import 'pantry_item_model.dart';
 import 'pantry_service.dart';
+
+extension FirstWhereOrNullExtension<E> on Iterable<E> {
+  E? firstWhereOrNull(bool Function(E element) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
+  }
+}
 
 class PantryScreen extends StatefulWidget {
   const PantryScreen({super.key});
@@ -26,19 +39,189 @@ class _CategoryOption {
   const _CategoryOption(this.key, this.label);
 }
 
-const List<String> _categoryKeys = ['vegetables', 'fruit', 'meat'];
+const List<String> _categoryKeys = [
+  'vegetable',
+  'fruit',
+  'meat',
+  'leftover',
+  'other',
+];
 
 List<_CategoryOption> _buildCategoryOptions(BuildContext context) {
   return [
     _CategoryOption('all', context.tr('All')),
-    _CategoryOption('vegetables', context.tr('Vegetables')),
+    _CategoryOption('vegetable', context.tr('Vegetables')),
     _CategoryOption('fruit', context.tr('Fruit')),
     _CategoryOption('meat', context.tr('Meat')),
+    _CategoryOption('leftover', context.tr('Thức ăn cũ')),
+    _CategoryOption('other', context.tr('Khác')),
   ];
 }
 
 class _PantryScreenState extends State<PantryScreen> {
-    bool _hasShownMissingInfoSnackbar = false;
+  Future<void> _scanBarcode() async {
+    String? barcode;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              MobileScanner(
+                onDetect: (capture) {
+                  final code = capture.barcodes.first.rawValue;
+                  if (code != null && barcode == null) {
+                    barcode = code;
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              Positioned(
+                top: 40,
+                left: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (barcode == null) return;
+
+    // Gọi Open Food Facts API
+    final url = 'https://world.openfoodfacts.org/api/v0/product/$barcode.json';
+    final response = await http.get(Uri.parse(url));
+    String? productName;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['status'] == 1 && data['product'] != null) {
+        productName = data['product']['product_name'] ?? '';
+      }
+    }
+
+    final nameCtrl = TextEditingController(text: productName ?? '');
+    final qtyCtrl = TextEditingController(text: '1');
+    DateTime? expiredAt;
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Thêm sản phẩm'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppTextField(controller: nameCtrl, label: 'Tên sản phẩm'),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: qtyCtrl,
+                  label: 'Số lượng',
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          expiredAt == null
+                              ? 'Chọn hạn sử dụng'
+                              : 'HSD: \\${expiredAt!.day}/\\${expiredAt!.month}/\\${expiredAt!.year}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: expiredAt == null
+                                ? Colors.grey
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.calendar_today),
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            expiredAt = picked;
+                            (context as Element).markNeedsBuild();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Huỷ'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Thêm'),
+            ),
+          ],
+        );
+      },
+    );
+    final name = nameCtrl.text.trim();
+    final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1;
+    if (name.isEmpty) return;
+
+    // Kiểm tra trùng tên + hạn sử dụng
+    final PantryItemModel? existing = _service.items.firstWhereOrNull(
+      (item) =>
+          item.name.toLowerCase() == name.toLowerCase() &&
+          ((item.expiredAt == null && expiredAt == null) ||
+              (item.expiredAt != null &&
+                  expiredAt != null &&
+                  item.expiredAt!.year == expiredAt!.year &&
+                  item.expiredAt!.month == expiredAt!.month &&
+                  item.expiredAt!.day == expiredAt!.day)),
+    );
+    if (existing != null) {
+      await _service.updateItem(
+        id: existing.id,
+        name: existing.name,
+        category: existing.category,
+        quantity: existing.quantity + qty,
+        unit: existing.unit,
+        expiredAt: existing.expiredAt,
+      );
+    } else {
+      await _service.createItem(
+        name: name,
+        category: '',
+        quantity: qty,
+        unit: '',
+        expiredAt: expiredAt,
+      );
+    }
+    _service.loadItems();
+    showTopSnackBar(context, 'Đã thêm sản phẩm vào tủ lạnh!', isError: false);
+  }
+
+  bool _hasShownMissingInfoSnackbar = false;
   final PantryService _service = PantryService.instance;
   final TextEditingController _searchCtrl = TextEditingController();
   int _selectedCategory = 0;
@@ -64,8 +247,39 @@ class _PantryScreenState extends State<PantryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: MainFab(
-        onPressed: () => _openScreen(context, const PantryScreen()),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'pantry_action',
+        backgroundColor: AppColors.primary,
+        tooltip: 'Thêm hoặc quét',
+        onPressed: () async {
+          final result = await showModalBottomSheet<String>(
+            context: context,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            builder: (context) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Nhập thủ công'),
+                  onTap: () => Navigator.pop(context, 'manual'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.qr_code_scanner),
+                  title: const Text('Quét barcode'),
+                  onTap: () => Navigator.pop(context, 'scan'),
+                ),
+              ],
+            ),
+          );
+          if (result == 'manual') {
+            _openIngredientForm(context);
+          } else if (result == 'scan') {
+            _scanBarcode();
+          }
+        },
+        child: const Icon(Icons.add, size: 32),
       ),
       bottomNavigationBar: MainBottomBar(
         currentIndex: -1,
@@ -104,7 +318,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      context.tr('Fridge'),
+                      context.tr('Tủ lạnh'),
                       style: AppTextStyles.title.copyWith(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -275,7 +489,7 @@ class _PantryScreenState extends State<PantryScreen> {
                     ),
                   );
                 },
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
                 itemCount: categories.length,
               ),
             ),
@@ -344,15 +558,17 @@ class _PantryScreenState extends State<PantryScreen> {
     final filtered = items.where((item) {
       final name = item.name.toLowerCase();
       final matchQuery = query.isEmpty || name.contains(query);
-      final itemCategory = item.category.trim().toLowerCase();
+      final itemCategory = _normalizeCategoryKey(item.category);
       final matchCategory = categoryKey == 'all' || itemCategory == categoryKey;
       return matchQuery && matchCategory;
     }).toList();
 
     // Đưa các item thiếu thông tin lên đầu
     filtered.sort((a, b) {
-      bool aMissing = a.quantity == 0 || a.unit.trim().isEmpty || a.category.trim().isEmpty;
-      bool bMissing = b.quantity == 0 || b.unit.trim().isEmpty || b.category.trim().isEmpty;
+      bool aMissing =
+          a.quantity == 0 || a.unit.trim().isEmpty || a.category.trim().isEmpty;
+      bool bMissing =
+          b.quantity == 0 || b.unit.trim().isEmpty || b.category.trim().isEmpty;
       if (aMissing && !bMissing) return -1;
       if (!aMissing && bMissing) return 1;
       if (_sortByNameAsc) {
@@ -361,7 +577,12 @@ class _PantryScreenState extends State<PantryScreen> {
       return 0;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final hasMissing = filtered.any((item) => item.quantity == 0 || item.unit.trim().isEmpty || item.category.trim().isEmpty);
+      final hasMissing = filtered.any(
+        (item) =>
+            item.quantity == 0 ||
+            item.unit.trim().isEmpty ||
+            item.category.trim().isEmpty,
+      );
       if (hasMissing && !_hasShownMissingInfoSnackbar) {
         _hasShownMissingInfoSnackbar = true;
         showTopSnackBar(
@@ -498,21 +719,46 @@ class _PantryScreenState extends State<PantryScreen> {
     try {
       await _service.clearAllItems();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Đã dọn toàn bộ tủ lạnh'))),
-      );
+        showTopSnackBar(
+          context,
+          context.tr('Đã dọn toàn bộ tủ lạnh'),
+          isError: false,
+        );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Không thể dọn tủ lạnh'))),
-      );
+        showTopSnackBar(
+          context,
+          context.tr('Không thể dọn tủ lạnh'),
+          isError: true,
+        );
     }
   }
 
   void _openScreen(BuildContext context, Widget screen) {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+}
+
+String _normalizeCategoryKey(String? value) {
+  final normalized = (value ?? '').trim().toLowerCase();
+  switch (normalized) {
+    case 'vegetables':
+    case 'vegetable':
+      return 'vegetable';
+    case 'fruit':
+      return 'fruit';
+    case 'meat':
+      return 'meat';
+    case 'leftover':
+    case 'leftover_food':
+    case 'thuc_an_cu':
+      return 'leftover';
+    case 'bun_banh_trang':
+    case 'noodle_rice_paper':
+    case 'starch':
+      return 'noodle_rice_paper';
+    default:
+      return normalized;
   }
 }
 
@@ -615,7 +861,7 @@ class _IngredientFormSheetState extends State<_IngredientFormSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _categoryKey,
+              initialValue: _categoryKey,
               items: _categoryKeys
                   .map(
                     (key) => DropdownMenuItem(
@@ -724,9 +970,11 @@ class _IngredientFormSheetState extends State<_IngredientFormSheet> {
   Future<void> _saveItem() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
+      showTopSnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.tr('Vui lòng nhập tên'))));
+        context.tr('Vui lòng nhập tên'),
+        isError: true,
+      );
       return;
     }
     final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
@@ -792,9 +1040,11 @@ class _IngredientFormSheetState extends State<_IngredientFormSheet> {
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      showTopSnackBar(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.tr('Không thể xoá'))));
+        context.tr('Không thể xoá'),
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -809,19 +1059,46 @@ class _IngredientFormSheetState extends State<_IngredientFormSheet> {
   }
 
   String _resolveInitialCategory(String? value) {
-    final normalized = (value ?? '').trim().toLowerCase();
+    final normalized = _normalizeCategoryKey(value);
     if (_categoryKeys.contains(normalized)) return normalized;
     return _categoryKeys.first;
   }
 
+  String _normalizeCategoryKey(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
+    switch (normalized) {
+      case 'vegetables':
+      case 'vegetable':
+        return 'vegetable';
+      case 'fruit':
+        return 'fruit';
+      case 'meat':
+        return 'meat';
+      case 'leftover':
+      case 'leftover_food':
+      case 'thuc_an_cu':
+        return 'leftover';
+      case 'bun_banh_trang':
+      case 'noodle_rice_paper':
+      case 'starch':
+        return 'noodle_rice_paper';
+      default:
+        return normalized;
+    }
+  }
+
   String _categoryLabel(BuildContext context, String key) {
     switch (key) {
-      case 'vegetables':
+      case 'vegetable':
         return context.tr('Vegetables');
       case 'fruit':
         return context.tr('Fruit');
       case 'meat':
         return context.tr('Meat');
+      case 'leftover':
+        return context.tr('Thức ăn cũ');
+      case 'noodle_rice_paper':
+        return context.tr('Bún/Bánh tráng');
       default:
         return key;
     }

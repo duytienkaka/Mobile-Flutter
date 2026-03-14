@@ -3,6 +3,7 @@ import '../../core/l10n/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/top_snackbar.dart';
 import 'shopping_item_model.dart';
 import 'shopping_list_model.dart';
 import 'shopping_service.dart';
@@ -218,17 +219,18 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 					MaterialPageRoute(builder: (_) => PantryScreen()),
 				);
 				Future.delayed(const Duration(milliseconds: 500), () {
-					ScaffoldMessenger.of(context).showSnackBar(
-						SnackBar(
-							content: Text('Vui lòng điền thêm thông tin cho nguyên liệu vừa thêm!'),
-							backgroundColor: AppColors.warning,
-						),
+					showTopSnackBar(
+						context,
+						'Vui lòng điền thêm thông tin cho nguyên liệu vừa thêm!',
+						isError: true,
 					);
 				});
 			}
 		} catch (e) {
-			ScaffoldMessenger.of(context).showSnackBar(
-				SnackBar(content: Text('Có lỗi khi thêm vào tủ lạnh: $e'), backgroundColor: AppColors.danger),
+			showTopSnackBar(
+				context,
+				'Có lỗi khi thêm vào tủ lạnh: $e',
+				isError: true,
 			);
 		} finally {
 			setState(() => _processing = false);

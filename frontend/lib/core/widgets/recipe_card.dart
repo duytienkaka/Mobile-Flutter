@@ -114,7 +114,7 @@ class RecipeCard extends StatelessWidget {
 				height: 88,
 				width: double.infinity,
 				fit: BoxFit.cover,
-				errorBuilder: (_, __, ___) => Container(
+				errorBuilder: (_, _, _) => Container(
 					height: 88,
 					width: double.infinity,
 					color: AppColors.surfaceSoft,
