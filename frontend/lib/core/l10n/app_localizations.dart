@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:frontend/core/l10n/l10n_keys.dart';
 
 class AppLocalizations {
   final Locale locale;
@@ -21,6 +22,34 @@ class AppLocalizations {
   static AppLocalizations of(BuildContext context) {
     return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
   }
+
+  static const Map<String, String> _viByKey = {
+    L10nKeys.commonHelloName: 'Xin chào {name}',
+    L10nKeys.commonStepProgress: 'Bước {current}/{total}',
+    L10nKeys.notificationDeleteError: 'Không thể xóa thông báo: {error}',
+    L10nKeys.pantryExpiryDays: 'Còn {days} ngày',
+    L10nKeys.authOtpSentToPhone:
+        'Mã xác thực đã được gửi đến số điện thoại\n{phone}',
+    L10nKeys.authOtpExpiresInSeconds: 'Mã hết hạn sau {seconds}s',
+    L10nKeys.shoppingCompletedProgress: '{completed}/{total} Đã hoàn thành',
+    L10nKeys.shoppingListMeta: '{date} • {count} món • {doneText}',
+    L10nKeys.shoppingCompletedItems: 'Đã hoàn thành ({count} món)',
+    L10nKeys.plannerServings: '{count} suất',
+  };
+
+  static const Map<String, String> _enByKey = {
+    L10nKeys.commonHelloName: 'Hello {name}',
+    L10nKeys.commonStepProgress: 'Step {current}/{total}',
+    L10nKeys.notificationDeleteError:
+        'Unable to delete notification: {error}',
+    L10nKeys.pantryExpiryDays: '{days} days left',
+    L10nKeys.authOtpSentToPhone: 'Verification code has been sent to\n{phone}',
+    L10nKeys.authOtpExpiresInSeconds: 'Code expires in {seconds}s',
+    L10nKeys.shoppingCompletedProgress: '{completed}/{total} completed',
+    L10nKeys.shoppingListMeta: '{date} • {count} items • {doneText}',
+    L10nKeys.shoppingCompletedItems: 'Completed ({count} items)',
+    L10nKeys.plannerServings: '{count} servings',
+  };
 
   static const Map<String, String> _en = {
     'Cài đặt': 'Settings',
@@ -197,6 +226,23 @@ class AppLocalizations {
     }
     return key;
   }
+
+  String tKey(String key, {Map<String, Object?> params = const {}}) {
+    final dict = locale.languageCode == 'en' ? _enByKey : _viByKey;
+    final template = dict[key];
+    if (template == null) {
+      return _interpolate(t(key), params);
+    }
+    return _interpolate(template, params);
+  }
+
+  String _interpolate(String template, Map<String, Object?> params) {
+    var resolved = template;
+    for (final entry in params.entries) {
+      resolved = resolved.replaceAll('{${entry.key}}', '${entry.value ?? ''}');
+    }
+    return resolved;
+  }
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
@@ -219,4 +265,8 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
 
 extension AppLocalizationX on BuildContext {
   String tr(String key) => AppLocalizations.of(this).t(key);
+
+  String trKey(String key, {Map<String, Object?> params = const {}}) {
+    return AppLocalizations.of(this).tKey(key, params: params);
+  }
 }

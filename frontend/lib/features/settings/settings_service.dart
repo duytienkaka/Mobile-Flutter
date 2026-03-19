@@ -1,7 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
+
+class WeeklyPlanPreferences {
+  final double? weeklyBudget;
+  final String nutritionGoal;
+
+  const WeeklyPlanPreferences({
+    required this.weeklyBudget,
+    required this.nutritionGoal,
+  });
+}
 
 class UserProfile {
   final String id;
@@ -30,6 +41,9 @@ class UserProfile {
 }
 
 class SettingsService {
+  static const _weeklyBudgetKey = 'weekly_plan_budget';
+  static const _weeklyNutritionGoalKey = 'weekly_plan_nutrition_goal';
+
   static Future<UserProfile> getProfile() async {
     final res = await ApiClient.get('/users/me', auth: true);
     if (res.statusCode != 200) {
@@ -98,6 +112,29 @@ class SettingsService {
     if (url == null || url.isEmpty) return null;
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     return '${ApiClient.baseUrl}$url';
+  }
+
+  static Future<WeeklyPlanPreferences> getWeeklyPlanPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final budget = prefs.getDouble(_weeklyBudgetKey);
+    final goal = prefs.getString(_weeklyNutritionGoalKey) ?? 'balanced';
+    return WeeklyPlanPreferences(
+      weeklyBudget: budget,
+      nutritionGoal: goal,
+    );
+  }
+
+  static Future<void> saveWeeklyPlanPreferences({
+    required double? weeklyBudget,
+    required String nutritionGoal,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (weeklyBudget == null || weeklyBudget <= 0) {
+      await prefs.remove(_weeklyBudgetKey);
+    } else {
+      await prefs.setDouble(_weeklyBudgetKey, weeklyBudget);
+    }
+    await prefs.setString(_weeklyNutritionGoalKey, nutritionGoal.trim());
   }
 
   static String _extractError(dynamic res) {

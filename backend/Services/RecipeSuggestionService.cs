@@ -38,10 +38,7 @@ public class RecipeSuggestionService
             return FilterResponseByTab(cached, normalizedTab);
         }
 
-        if (refresh && TryGetRefreshCached(cacheKey, out var refreshCached))
-        {
-            return FilterResponseByTab(refreshCached, normalizedTab);
-        }
+        // Always regenerate suggestions on explicit refresh so "Đổi món" returns new AI results.
 
         var ingredients = await _db.Ingredients
             .AsNoTracking()
@@ -50,20 +47,52 @@ public class RecipeSuggestionService
             .Where(x => x.ExpiredAt == null || x.ExpiredAt >= DateTime.UtcNow.Date)
             .ToListAsync(ct);
 
+        if (normalizedTab == "full")
+        {
+            var plannerBased = await BuildPlannerBasedFullSuggestions(userId, ingredients, ct);
+            if (plannerBased.Count > 0)
+            {
+                var plannerResponse = new RecipeSuggestionsResponse
+                {
+                    GeneratedAt = DateTime.UtcNow,
+                    FullRecipes = plannerBased,
+                    NearRecipes = new List<RecipeSuggestionDto>()
+                };
+                Cache(cacheKey, plannerResponse);
+                CacheRefresh(cacheKey, plannerResponse);
+                return plannerResponse;
+            }
+        }
+
         var recentCooked = await _db.CookingHistories
             .AsNoTracking()
             .Where(x => x.UserId == userId && x.CookedAt >= DateTime.UtcNow.AddDays(-7))
             .Select(x => x.RecipeName)
             .ToListAsync(ct);
 
-        var pantrySnapshot = ingredients
-            .Select(x => new GeminiIngredient
-            {
-                Name = x.Name,
-                Quantity = x.Quantity,
-                Unit = x.Unit
-            })
-            .ToList();
+        if (refresh && TryGetCached(cacheKey, out var previousSuggestions))
+        {
+            recentCooked.AddRange(ExtractNamesByTab(previousSuggestions, normalizedTab));
+        }
+
+
+        // Nếu là tab 'near' (món ăn dinh dưỡng), truyền pantry rỗng để AI tự do gợi ý
+        List<GeminiIngredient> pantrySnapshot;
+        if (normalizedTab == "near")
+        {
+            pantrySnapshot = new List<GeminiIngredient>();
+        }
+        else
+        {
+            pantrySnapshot = ingredients
+                .Select(x => new GeminiIngredient
+                {
+                    Name = x.Name,
+                    Quantity = x.Quantity,
+                    Unit = x.Unit
+                })
+                .ToList();
+        }
 
         var recentNormalized = new HashSet<string>(
             recentCooked.Select(NormalizeName),
@@ -337,6 +366,24 @@ public class RecipeSuggestionService
         return $"{userId:N}:{date}:{tab}";
     }
 
+    private static IEnumerable<string> ExtractNamesByTab(
+        RecipeSuggestionsResponse source,
+        string tab)
+    {
+        if (tab == "full")
+        {
+            return source.FullRecipes.Select(x => x.Name);
+        }
+
+        if (tab == "near")
+        {
+            return source.NearRecipes.Select(x => x.Name);
+        }
+
+        return source.FullRecipes.Select(x => x.Name)
+            .Concat(source.NearRecipes.Select(x => x.Name));
+    }
+
     private static void Cache(string key, RecipeSuggestionsResponse response)
     {
         lock (_cacheLock)
@@ -424,6 +471,104 @@ public class RecipeSuggestionService
 
         var query = Uri.EscapeDataString(recipeName);
         return $"https://source.unsplash.com/featured/?{query}";
+    }
+
+    private async Task<List<RecipeSuggestionDto>> BuildPlannerBasedFullSuggestions(
+        Guid userId,
+        List<Ingredient> pantryIngredients,
+        CancellationToken ct)
+    {
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        var plans = await _db.MealPlans
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Where(x => x.Date >= today && x.Date < tomorrow)
+            .Where(x => x.MealType == "breakfast" || x.MealType == "lunch" || x.MealType == "dinner")
+            .OrderBy(x => x.Date)
+            .ThenBy(x => x.MealType)
+            .Take(PantryRecipeCount)
+            .ToListAsync(ct);
+
+        if (plans.Count == 0)
+        {
+            return new List<RecipeSuggestionDto>();
+        }
+
+        var plannedNames = plans
+            .Select(x => x.RecipeName.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (plannedNames.Count == 0)
+        {
+            return new List<RecipeSuggestionDto>();
+        }
+
+        var pantrySnapshot = pantryIngredients
+            .Select(x => new GeminiIngredient
+            {
+                Name = x.Name,
+                Quantity = x.Quantity,
+                Unit = x.Unit
+            })
+            .ToList();
+
+        var aiRecipes = await _gemini.GenerateRecipesByNamesAsync(plannedNames, pantrySnapshot, ct);
+        var byName = aiRecipes
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => NormalizeName(x.Name))
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var pantryNames = pantrySnapshot
+            .Select(x => NormalizeName(x.Name))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var full = new List<RecipeSuggestionDto>();
+        foreach (var name in plannedNames)
+        {
+            if (!byName.TryGetValue(NormalizeName(name), out var recipe))
+            {
+                full.Add(new RecipeSuggestionDto
+                {
+                    Name = name,
+                    TimeMinutes = 30,
+                    ImageUrl = BuildImageUrl(null, name),
+                    Ingredients = new List<RecipeIngredientDto>(),
+                    MissingIngredients = new List<RecipeIngredientDto>()
+                });
+                continue;
+            }
+
+            var ingredients = recipe.Ingredients
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+                .Select(x => new RecipeIngredientDto
+                {
+                    Name = x.Name.Trim(),
+                    Quantity = x.Quantity <= 0 ? 1 : x.Quantity,
+                    Unit = x.Unit?.Trim() ?? ""
+                })
+                .ToList();
+
+            var missing = ingredients
+                .Where(x => !IsIngredientAvailable(x.Name, pantryNames))
+                .ToList();
+
+            full.Add(new RecipeSuggestionDto
+            {
+                Name = recipe.Name.Trim(),
+                TimeMinutes = recipe.TimeMinutes <= 0 ? 30 : recipe.TimeMinutes,
+                ImageUrl = BuildImageUrl(recipe.ImageUrl, recipe.Name),
+                Ingredients = ingredients,
+                MissingIngredients = missing
+            });
+        }
+
+        return full.Take(PantryRecipeCount).ToList();
     }
 
     private sealed class CacheEntry

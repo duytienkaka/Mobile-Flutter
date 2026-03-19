@@ -73,12 +73,8 @@ class HomeAiService extends ChangeNotifier {
         _tips = _parseTips(data['storageTips']);
       }
 
-      // If no recipes, use default ones
-      if (_recipes.isEmpty) {
-        _recipes = _getDefaultRecipes();
-      }
-
-      // If no tips, use default ones
+      // Nếu không có món ăn, không gán dữ liệu mẫu nữa
+      // Nếu không có tips, vẫn dùng tips mẫu
       if (_tips.isEmpty) {
         _tips = _getDefaultTips();
       }
@@ -86,11 +82,7 @@ class HomeAiService extends ChangeNotifier {
       _loaded = true;
     } catch (err) {
       _error = err.toString();
-      // Use default recipes as fallback
-      if (_recipes.isEmpty) {
-        _recipes = _getDefaultRecipes();
-      }
-      // Use default tips as fallback
+      // Nếu không có tips, dùng tips mẫu
       if (_tips.isEmpty) {
         _tips = _getDefaultTips();
       }
@@ -238,40 +230,8 @@ class HomeAiService extends ChangeNotifier {
     return [ingredients[0], ingredients[1], '+${ingredients.length - 2}'];
   }
 
-  List<HomeAiRecipe> _getDefaultRecipes() {
-    return [
-      HomeAiRecipe(
-        name: 'Cơm Gà Chiên',
-        timeMinutes: 25,
-        ingredients: const ['Gạo', 'Gà', 'Trứng', 'Hành'],
-        tags: const ['Gạo', 'Gà', '+2'],
-      ),
-      HomeAiRecipe(
-        name: 'Ramen',
-        timeMinutes: 30,
-        ingredients: const ['Mì', 'Nước dùng', 'Trứng', 'Thịt heo'],
-        tags: const ['Mì', 'Nước dùng', '+2'],
-      ),
-      HomeAiRecipe(
-        name: 'Canh Rau',
-        timeMinutes: 20,
-        ingredients: const ['Rau cải', 'Nước dùng', 'Hành', 'Muối'],
-        tags: const ['Rau cải', 'Nước dùng', '+2'],
-      ),
-      HomeAiRecipe(
-        name: 'Salad Trộn',
-        timeMinutes: 15,
-        ingredients: const ['Rau xà lách', 'Cà chua', 'Dưa chuột', 'Dầu oliu'],
-        tags: const ['Rau xà lách', 'Cà chua', '+2'],
-      ),
-      HomeAiRecipe(
-        name: 'Stir Fry Rau',
-        timeMinutes: 20,
-        ingredients: const ['Rau đậu', 'Tỏi', 'Gừng', 'Xì dầu'],
-        tags: const ['Rau đậu', 'Tỏi', '+2'],
-      ),
-    ];
-  }
+  // Xóa dữ liệu seed món ăn, chỉ giữ tips mẫu
+  // Nếu không có món ăn, UI sẽ hiển thị thông báo
 
   List<HomeAiTip> _getDefaultTips() {
     return [

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/widgets/top_snackbar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -50,12 +51,11 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDecorBanner(context),
-              const SizedBox(height: 16),
+              _buildVideoGuideCard(context),
+              const SizedBox(height: 14),
               Text(recipe.name, style: AppTextStyles.title),
               const SizedBox(height: 12),
-              _buildToolsCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
               Text('Manual', style: AppTextStyles.subtitle),
               const SizedBox(height: 10),
               _buildStepsSection(recipe),
@@ -157,102 +157,77 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
     return _buildStepsList(steps);
   }
 
-  Widget _buildDecorBanner(BuildContext context) {
-    return Container(
-      height: 180,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: -20,
-            top: -10,
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFDE68A),
-                borderRadius: BorderRadius.circular(999),
-              ),
+  Widget _buildVideoGuideCard(BuildContext context) {
+    return InkWell(
+      onTap: _openVideoGuide,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-          ),
-          Positioned(
-            right: -24,
-            bottom: -24,
-            child: Container(
-              width: 120,
-              height: 120,
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              height: 170,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFEDD5),
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: const Color(0xFFD1D5DB)),
               ),
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border),
+              child: Center(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF111827),
+                    shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.local_dining,
-                    color: AppColors.textMuted,
-                    size: 24,
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 38,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  context.tr('Hướng dẫn nấu'),
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(
+                  Icons.smart_display_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.tr('Xem video hướng dẫn'),
+                    style: AppTextStyles.subtitle,
                   ),
+                ),
+                Icon(
+                  Icons.open_in_new,
+                  color: AppColors.textMuted,
+                  size: 18,
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToolsCard() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(Icons.handyman_outlined,
-              color: AppColors.textMuted,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Bếp, dao, thớt, chảo, thìa',
-              style: AppTextStyles.caption,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -362,6 +337,28 @@ class _TodayInstructionScreenState extends State<TodayInstructionScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openVideoGuide() async {
+    final recipeName = widget.recipe.name.trim();
+    final query = recipeName.isEmpty
+        ? 'hướng dẫn nấu ăn tại nhà chi tiết'
+        : 'cách làm $recipeName công thức $recipeName hướng dẫn nấu ăn chi tiết';
+    final uri = Uri.parse(
+      'https://www.youtube.com/results?search_query=${Uri.encodeQueryComponent(query)}',
+    );
+
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && mounted) {
+      showTopSnackBar(
+        context,
+        context.tr('Không thể mở video lúc này.'),
+        isError: true,
+      );
+    }
   }
 
   String _extractError(dynamic res) {

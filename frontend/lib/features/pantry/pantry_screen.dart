@@ -3,11 +3,13 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/l10n/app_localizations.dart';
+import '../../core/l10n/l10n_keys.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/ingredient_card.dart';
 import '../../core/widgets/top_snackbar.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_dialogs.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
@@ -61,7 +63,7 @@ List<_CategoryOption> _buildCategoryOptions(BuildContext context) {
 class _PantryScreenState extends State<PantryScreen> {
   Future<void> _scanBarcode() async {
     String? barcode;
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (context) {
         return Scaffold(
@@ -70,12 +72,40 @@ class _PantryScreenState extends State<PantryScreen> {
             children: [
               MobileScanner(
                 onDetect: (capture) {
-                  final code = capture.barcodes.first.rawValue;
-                  if (code != null && barcode == null) {
-                    barcode = code;
-                    Navigator.of(context).pop();
-                  }
+                  final value =
+                      capture.barcodes.isNotEmpty ? capture.barcodes.first.rawValue : null;
+                  if (value == null || value.isEmpty) return;
+                  barcode = value;
+                  Navigator.of(context).pop();
                 },
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      width: 240,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 3),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const Positioned(
+                bottom: 56,
+                left: 24,
+                right: 24,
+                child: Text(
+                  'Canh ma vach vao khung de quet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               Positioned(
                 top: 40,
@@ -92,7 +122,6 @@ class _PantryScreenState extends State<PantryScreen> {
     );
     if (barcode == null) return;
 
-    // Gọi Open Food Facts API
     final url = 'https://world.openfoodfacts.org/api/v0/product/$barcode.json';
     final response = await http.get(Uri.parse(url));
     String? productName;
@@ -106,84 +135,137 @@ class _PantryScreenState extends State<PantryScreen> {
     final nameCtrl = TextEditingController(text: productName ?? '');
     final qtyCtrl = TextEditingController(text: '1');
     DateTime? expiredAt;
-    await showDialog(
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Thêm sản phẩm'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppTextField(controller: nameCtrl, label: 'Tên sản phẩm'),
-                const SizedBox(height: 16),
-                AppTextField(
-                  controller: qtyCtrl,
-                  label: 'Số lượng',
-                  keyboardType: TextInputType.number,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.shadow.withValues(alpha: 0.14),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Text(
-                          expiredAt == null
-                              ? 'Chọn hạn sử dụng'
-                              : 'HSD: \\${expiredAt!.day}/\\${expiredAt!.month}/\\${expiredAt!.year}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: expiredAt == null
-                                ? Colors.grey
-                                : Colors.black,
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.qr_code_scanner_rounded,
+                              color: AppColors.primary,
+                            ),
                           ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Thêm sản phẩm',
+                            style: AppTextStyles.subtitle.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(controller: nameCtrl, label: 'Tên sản phẩm'),
+                      const SizedBox(height: 12),
+                      AppTextField(
+                        controller: qtyCtrl,
+                        label: 'Số lượng',
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                expiredAt == null
+                                    ? 'Chọn hạn sử dụng'
+                                    : 'HSD: ${expiredAt!.day}/${expiredAt!.month}/${expiredAt!.year}',
+                                style: AppTextStyles.body.copyWith(
+                                  color: expiredAt == null
+                                      ? AppColors.textMuted
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.calendar_today),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime(2100),
+                                );
+                                if (picked != null) {
+                                  setLocalState(() => expiredAt = picked);
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.calendar_today),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) {
-                            expiredAt = picked;
-                            (context as Element).markNeedsBuild();
-                          }
-                        },
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(dialogContext, false),
+                              child: const Text('Huỷ'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(dialogContext, true),
+                              child: const Text('Thêm'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Huỷ'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: const Text('Thêm'),
-            ),
-          ],
+              ),
+            );
+          },
         );
       },
     );
+
+    if (confirmed != true) return;
+
     final name = nameCtrl.text.trim();
     final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1;
     if (name.isEmpty) return;
@@ -250,6 +332,7 @@ class _PantryScreenState extends State<PantryScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'pantry_action',
         backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textPrimary,
         tooltip: 'Thêm hoặc quét',
         onPressed: () async {
           final result = await showModalBottomSheet<String>(
@@ -601,8 +684,8 @@ class _PantryScreenState extends State<PantryScreen> {
 
   String _formatQuantity(PantryItemModel item) {
     final amount = item.quantity % 1 == 0
-        ? item.quantity.toInt().toString()
-        : item.quantity.toString();
+      ? item.quantity.toInt().toString()
+      : item.quantity.toStringAsFixed(2);
     final unit = item.unit.trim();
     return unit.isEmpty ? amount : '$amount$unit';
   }
@@ -622,7 +705,7 @@ class _PantryScreenState extends State<PantryScreen> {
     final diff = normalized.difference(today).inDays;
     if (diff < 0) return context.tr('Đã hết hạn');
     if (diff <= 3) return context.tr('Sắp hết hạn');
-    return context.tr('Còn $diff ngày');
+      return context.trKey(L10nKeys.pantryExpiryDays, params: {'days': diff});
   }
 
   bool _isExpired(DateTime? date) {
@@ -663,26 +746,17 @@ class _PantryScreenState extends State<PantryScreen> {
     BuildContext context,
     PantryItemModel item,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.tr('Xoá nguyên liệu')),
-        content: Text(context.tr('Bạn chắc chắn muốn xoá?')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(context.tr('Huỷ')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Xoá')),
-          ),
-        ],
-      ),
+      title: context.tr('Xoá nguyên liệu'),
+      message: context.tr('Bạn chắc chắn muốn xoá?'),
+      cancelText: context.tr('Huỷ'),
+      confirmText: context.tr('Xoá'),
+      isDanger: true,
+      icon: Icons.delete_outline_rounded,
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await _service.deleteItem(item.id);
     } catch (_) {
@@ -695,26 +769,17 @@ class _PantryScreenState extends State<PantryScreen> {
 
   Future<void> _confirmClearAll(BuildContext context) async {
     if (_service.items.isEmpty) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.tr('Dọn tủ lạnh')),
-        content: Text(context.tr('Xoá toàn bộ nguyên liệu trong tủ lạnh?')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(context.tr('Huỷ')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Xoá hết')),
-          ),
-        ],
-      ),
+      title: context.tr('Dọn tủ lạnh'),
+      message: context.tr('Xoá toàn bộ nguyên liệu trong tủ lạnh?'),
+      cancelText: context.tr('Huỷ'),
+      confirmText: context.tr('Xoá hết'),
+      isDanger: true,
+      icon: Icons.delete_sweep_outlined,
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     try {
       await _service.clearAllItems();
@@ -737,6 +802,122 @@ class _PantryScreenState extends State<PantryScreen> {
   void _openScreen(BuildContext context, Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
+}
+
+class _ScanOverlay extends StatefulWidget {
+  const _ScanOverlay();
+
+  @override
+  State<_ScanOverlay> createState() => _ScanOverlayState();
+}
+
+class _ScanOverlayState extends State<_ScanOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _ScanOverlayPainter(progress: _controller),
+      willChange: true,
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _ScanOverlayPainter extends CustomPainter {
+  final Animation<double> progress;
+
+  _ScanOverlayPainter({required this.progress}) : super(repaint: progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.45);
+
+    final frameWidth = size.width * 0.78;
+    final frameHeight = frameWidth * 0.58;
+    final frameRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: frameWidth,
+      height: frameHeight,
+    );
+
+    final background = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final cutout = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(frameRect, const Radius.circular(16)),
+      );
+    final overlayPath = Path.combine(PathOperation.difference, background, cutout);
+    canvas.drawPath(overlayPath, overlayPaint);
+
+    final framePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(frameRect, const Radius.circular(16)),
+      framePaint,
+    );
+
+    final cornerPaint = Paint()
+      ..color = const Color(0xFF5BE37D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+
+    const cornerLength = 28.0;
+    final left = frameRect.left;
+    final right = frameRect.right;
+    final top = frameRect.top;
+    final bottom = frameRect.bottom;
+
+    canvas.drawLine(Offset(left, top), Offset(left + cornerLength, top), cornerPaint);
+    canvas.drawLine(Offset(left, top), Offset(left, top + cornerLength), cornerPaint);
+
+    canvas.drawLine(Offset(right, top), Offset(right - cornerLength, top), cornerPaint);
+    canvas.drawLine(Offset(right, top), Offset(right, top + cornerLength), cornerPaint);
+
+    canvas.drawLine(Offset(left, bottom), Offset(left + cornerLength, bottom), cornerPaint);
+    canvas.drawLine(Offset(left, bottom), Offset(left, bottom - cornerLength), cornerPaint);
+
+    canvas.drawLine(Offset(right, bottom), Offset(right - cornerLength, bottom), cornerPaint);
+    canvas.drawLine(Offset(right, bottom), Offset(right, bottom - cornerLength), cornerPaint);
+
+    final scanY = frameRect.top + 10 + progress.value * (frameRect.height - 20);
+    final scanRect = Rect.fromLTWH(frameRect.left + 6, scanY - 1.2, frameRect.width - 12, 2.4);
+    final scanPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0x005BE37D), Color(0xFF5BE37D), Color(0x005BE37D)],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(scanRect)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      Offset(scanRect.left, scanY),
+      Offset(scanRect.right, scanY),
+      scanPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanOverlayPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 String _normalizeCategoryKey(String? value) {
@@ -1013,26 +1194,17 @@ class _IngredientFormSheetState extends State<_IngredientFormSheet> {
   }
 
   Future<void> _deleteItem() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.tr('Xoá nguyên liệu')),
-        content: Text(context.tr('Bạn chắc chắn muốn xoá?')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(context.tr('Huỷ')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Xoá')),
-          ),
-        ],
-      ),
+      title: context.tr('Xoá nguyên liệu'),
+      message: context.tr('Bạn chắc chắn muốn xoá?'),
+      cancelText: context.tr('Huỷ'),
+      confirmText: context.tr('Xoá'),
+      isDanger: true,
+      icon: Icons.delete_outline_rounded,
     );
 
-    if (confirmed != true || widget.item == null) return;
+    if (!confirmed || widget.item == null) return;
     setState(() => _saving = true);
     try {
       await widget.service.deleteItem(widget.item!.id);

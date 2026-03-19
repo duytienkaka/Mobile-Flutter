@@ -70,7 +70,14 @@ class AppColors {
     shadow: Color(0x00000000),
   );
 
-  static bool get _isDark => ThemeController.instance.isDark;
+  static bool get _isDark {
+    final mode = ThemeController.instance.mode;
+    if (mode == ThemeMode.system) {
+      return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark;
+    }
+    return mode == ThemeMode.dark;
+  }
   static AppColorScheme get _scheme => _isDark ? dark : light;
 
   static Color get primary => _scheme.primary;

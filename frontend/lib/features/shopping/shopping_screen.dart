@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/core/widgets/top_snackbar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/l10n/l10n_keys.dart';
 import '../../home/home_screen.dart';
 import '../navigation/main_bottom_nav.dart';
 import '../notification/notification_screen.dart';
@@ -38,6 +40,12 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   void _onChanged() {
     if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    service.loadLists();
   }
 
   @override
@@ -123,37 +131,63 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   Widget _buildListTile(ShoppingListModel list) {
     final dateText = _formatDate(list.planDate);
-    final doneText =
-        '${list.completedCount}/${list.itemCount} ${context.tr('Đã hoàn thành')}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+    final doneText = context.trKey(
+      L10nKeys.shoppingCompletedProgress,
+      params: {'completed': list.completedCount, 'total': list.itemCount},
+    );
+    return Dismissible(
+      key: ValueKey(list.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.red.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(Icons.delete, color: Colors.red, size: 32),
       ),
-      child: InkWell(
-        onTap: () => _openListDetail(list),
-        child: Row(
-          children: [
-            Icon(Icons.event_note, color: AppColors.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(list.name, style: AppTextStyles.subtitle),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$dateText • ${list.itemCount} ${context.tr('món')} • $doneText',
-                    style: AppTextStyles.caption,
-                  ),
-                ],
+      onDismissed: (_) {
+        service.deleteList(list.id);
+        showTopSnackBar(context, context.tr('Đã xóa danh sách mua sắm!'));
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: InkWell(
+          onTap: () => _openListDetail(list),
+          child: Row(
+            children: [
+              Icon(Icons.event_note, color: AppColors.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(list.name, style: AppTextStyles.subtitle),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.trKey(
+                        L10nKeys.shoppingListMeta,
+                        params: {
+                          'date': dateText,
+                          'count': list.itemCount,
+                          'doneText': doneText,
+                        },
+                      ),
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right, color: AppColors.textMuted),
-          ],
+              Icon(Icons.chevron_right, color: AppColors.textMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -215,6 +249,17 @@ class _AddShoppingListSheetState extends State<_AddShoppingListSheet> {
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
     );
     if (picked != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final pickedDay = DateTime(picked.year, picked.month, picked.day);
+      if (pickedDay.isBefore(today)) {
+        showTopSnackBar(
+          context,
+          context.tr('Không thể chọn ngày hết hạn nhỏ hơn ngày hiện tại.'),
+          isError: true,
+        );
+        return;
+      }
       setState(() => _selectedDate = picked);
     }
   }

@@ -268,3 +268,7 @@ C:\Users\vanvi\Mobile-Flutter\backend\obj\Debug\net10.0\refint\backend.dll
 C:\Users\vanvi\Mobile-Flutter\backend\obj\Debug\net10.0\backend.pdb
 C:\Users\vanvi\Mobile-Flutter\backend\obj\Debug\net10.0\backend.genruntimeconfig.cache
 C:\Users\vanvi\Mobile-Flutter\backend\obj\Debug\net10.0\ref\backend.dll
+D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\kej86jtips-{0}-802pyrysva-802pyrysva.gz
+D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\pcllgev4l3-{0}-6sc84e027z-6sc84e027z.gz
+D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\nrizvkqtxg-{0}-rbpjlvyqt0-rbpjlvyqt0.gz
+D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\3np77zmpmi-{0}-ymujad6324-ymujad6324.gz

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/app_dialogs.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/tab_filter_pill.dart';
 import '../../../core/widgets/top_snackbar.dart';
 import '../../../core/l10n/app_localizations.dart';
 import 'planner_service.dart';
 import 'planner_widgets.dart';
+import '../../settings/settings_service.dart';
 
 class PlannerTab extends StatefulWidget {
 	final bool scrollable;
@@ -23,6 +25,9 @@ class _PlannerTabState extends State<PlannerTab> {
 	late DateTime weekStart;
 	late DateTime selectedDate;
 	bool showWeekView = false;
+	bool _weeklyActionLoading = false;
+	double? _weeklyBudget;
+	String _nutritionGoal = 'balanced';
 
 	@override
 	void initState() {
@@ -30,6 +35,7 @@ class _PlannerTabState extends State<PlannerTab> {
 		weekStart = service.weekStartFor(DateTime.now());
 		selectedDate = DateTime.now();
 		service.addListener(_handleUpdate);
+		_loadWeeklyPreferences();
 		service.loadWeek(weekStart);
 	}
 
@@ -49,6 +55,192 @@ class _PlannerTabState extends State<PlannerTab> {
 			selectedDate = weekStart;
 		});
 		service.loadWeek(weekStart);
+	}
+
+	Future<void> _loadWeeklyPreferences() async {
+		final prefs = await SettingsService.getWeeklyPlanPreferences();
+		if (!mounted) return;
+		setState(() {
+			_weeklyBudget = prefs.weeklyBudget;
+			_nutritionGoal = prefs.nutritionGoal.trim().isEmpty
+				? 'balanced'
+				: prefs.nutritionGoal.trim();
+		});
+	}
+
+	Future<void> _saveWeeklyPreferences() {
+		return SettingsService.saveWeeklyPlanPreferences(
+			weeklyBudget: _weeklyBudget,
+			nutritionGoal: _nutritionGoal,
+		);
+	}
+
+	Future<void> _runWeeklyPlan({required bool regenerateAuto}) async {
+		setState(() => _weeklyActionLoading = true);
+		try {
+			final status = await service.ensureWeeklyPlan(
+				weeklyBudget: _weeklyBudget,
+				nutritionGoal: _nutritionGoal,
+				regenerateAutoSlots: regenerateAuto,
+			);
+			await service.loadWeek(weekStart);
+			if (!mounted) return;
+			final message = regenerateAuto
+				? 'Đã tạo lại ${status.createdCount} bữa tự động và thay ${status.replacedAutoCount} bữa auto cũ.'
+				: (status.createdCount > 0
+					? 'Đã tạo tự động ${status.createdCount} bữa cho tuần này.'
+					: 'Tuần này đã có đủ kế hoạch.');
+			showTopSnackBar(context, message, isError: false);
+		} catch (e) {
+			if (!mounted) return;
+			showTopSnackBar(
+				context,
+				e.toString().replaceAll('Exception: ', ''),
+				isError: true,
+			);
+		} finally {
+			if (mounted) setState(() => _weeklyActionLoading = false);
+		}
+	}
+
+	Future<void> _openWeeklyPreferencesSheet() async {
+		final budgetCtrl = TextEditingController(
+			text: _weeklyBudget == null ? '' : _weeklyBudget!.toStringAsFixed(0),
+		);
+		var goal = _nutritionGoal;
+
+		final applied = await showModalBottomSheet<bool>(
+			context: context,
+			isScrollControlled: true,
+			backgroundColor: AppColors.surface,
+			shape: const RoundedRectangleBorder(
+				borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+			),
+			builder: (context) {
+				return StatefulBuilder(
+					builder: (context, setInnerState) {
+						return Padding(
+							padding: EdgeInsets.only(
+								left: 20,
+								right: 20,
+								top: 16,
+								bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+							),
+							child: Column(
+								mainAxisSize: MainAxisSize.min,
+								crossAxisAlignment: CrossAxisAlignment.start,
+								children: [
+									Text('Cấu hình Auto Plan tuần', style: AppTextStyles.title),
+									const SizedBox(height: 12),
+									TextField(
+										controller: budgetCtrl,
+										keyboardType: const TextInputType.numberWithOptions(decimal: true),
+										decoration: const InputDecoration(
+											labelText: 'Ngân sách tuần (tuỳ chọn)',
+											hintText: 'Ví dụ: 700000',
+										),
+									),
+									const SizedBox(height: 12),
+									Container(
+										padding: const EdgeInsets.symmetric(horizontal: 12),
+										decoration: BoxDecoration(
+											color: AppColors.surface,
+											borderRadius: BorderRadius.circular(12),
+											border: Border.all(color: AppColors.border),
+										),
+										child: DropdownButtonHideUnderline(
+											child: DropdownButton<String>(
+												value: goal,
+												items: const [
+													DropdownMenuItem(value: 'balanced', child: Text('Cân bằng')),
+													DropdownMenuItem(value: 'weight_loss', child: Text('Giảm cân')),
+													DropdownMenuItem(value: 'muscle_gain', child: Text('Tăng cơ')),
+												],
+												onChanged: (value) {
+													if (value == null) return;
+													setInnerState(() => goal = value);
+												},
+											),
+										),
+									),
+									const SizedBox(height: 16),
+									Row(
+										children: [
+											Expanded(
+												child: OutlinedButton(
+													onPressed: () => Navigator.pop(context, false),
+													child: Text(context.tr('Huỷ')),
+												),
+											),
+											const SizedBox(width: 12),
+											Expanded(
+												child: ElevatedButton(
+													onPressed: () => Navigator.pop(context, true),
+													child: const Text('Lưu cấu hình'),
+												),
+											),
+										],
+									),
+								],
+							),
+						);
+					},
+				);
+			},
+		);
+
+		if (applied != true) return;
+		final parsedBudget = double.tryParse(budgetCtrl.text.trim());
+		setState(() {
+			_weeklyBudget = (parsedBudget == null || parsedBudget <= 0) ? null : parsedBudget;
+			_nutritionGoal = goal;
+		});
+		await _saveWeeklyPreferences();
+		if (!mounted) return;
+		showTopSnackBar(context, 'Đã lưu cấu hình Auto Plan tuần.', isError: false);
+	}
+
+	Widget _buildWeeklyAutoBanner() {
+		final status = service.weeklyStatus;
+		final hasAuto = status?.hasAutoGeneratedThisWeek == true;
+		final subtitle = hasAuto
+			? 'Tuần này đã có kế hoạch auto. Bạn có thể cập nhật cấu hình rồi tạo bổ sung nếu còn slot trống.'
+			: 'Bạn có thể tạo kế hoạch tuần tự động dựa trên pantry, ngân sách và mục tiêu dinh dưỡng.';
+
+		return Container(
+			width: double.infinity,
+			padding: const EdgeInsets.all(12),
+			decoration: BoxDecoration(
+				color: AppColors.surfaceSoft,
+				borderRadius: BorderRadius.circular(12),
+				border: Border.all(color: AppColors.border),
+			),
+			child: Column(
+				crossAxisAlignment: CrossAxisAlignment.start,
+				children: [
+					Text('Auto Plan tuần', style: AppTextStyles.subtitle),
+					const SizedBox(height: 4),
+					Text(subtitle, style: AppTextStyles.caption),
+					const SizedBox(height: 10),
+					Wrap(
+						spacing: 8,
+						runSpacing: 8,
+						children: [
+							OutlinedButton.icon(
+								onPressed: _weeklyActionLoading ? null : _openWeeklyPreferencesSheet,
+								icon: const Icon(Icons.tune, size: 18),
+								label: const Text('Cấu hình'),
+							),
+							ElevatedButton.icon(
+								onPressed: _weeklyActionLoading ? null : () => _runWeeklyPlan(regenerateAuto: false),
+								icon: const Icon(Icons.auto_awesome, size: 18),
+								label: const Text('Tạo tuần này'),
+							),
+						],
+					),
+				],
+			),
+		);
 	}
 
 	Future<void> _openEntrySheet({MealPlanEntry? entry}) async {
@@ -88,24 +280,16 @@ class _PlannerTabState extends State<PlannerTab> {
 	}
 
 	Future<void> _confirmDelete(MealPlanEntry entry) async {
-		final confirmed = await showDialog<bool>(
+		final confirmed = await showAppConfirmDialog(
 			context: context,
-			builder: (context) => AlertDialog(
-				title: Text(context.tr('Xoá kế hoạch')),
-				content: Text(context.tr('Bạn chắc chắn muốn xoá món này?')),
-				actions: [
-					TextButton(
-						onPressed: () => Navigator.pop(context, false),
-						child: Text(context.tr('Huỷ')),
-					),
-					TextButton(
-						onPressed: () => Navigator.pop(context, true),
-						child: Text(context.tr('Xoá')),
-					),
-				],
-			),
+			title: context.tr('Xoá kế hoạch'),
+			message: context.tr('Bạn chắc chắn muốn xoá món này?'),
+			cancelText: context.tr('Huỷ'),
+			confirmText: context.tr('Xoá'),
+			isDanger: true,
+			icon: Icons.delete_outline_rounded,
 		);
-		if (confirmed == true) {
+		if (confirmed) {
 			try {
 				await service.removePlan(entry.id);
 			} catch (e) {
@@ -225,6 +409,8 @@ class _PlannerTabState extends State<PlannerTab> {
 								),
 							],
 						),
+						const SizedBox(height: 10),
+						_buildWeeklyAutoBanner(),
 						const SizedBox(height: 12),
 						_buildWeekSelector(),
 						const SizedBox(height: 12),

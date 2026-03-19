@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../notification/notification_service.dart';
 
 class MainFab extends StatelessWidget {
 	final VoidCallback onPressed;
@@ -23,12 +24,13 @@ class MainFab extends StatelessWidget {
 	}
 }
 
-class MainBottomBar extends StatelessWidget {
+class MainBottomBar extends StatefulWidget {
 	final int currentIndex;
 	final VoidCallback onHome;
 	final VoidCallback onRecipe;
 	final VoidCallback onShopping;
 	final VoidCallback onNotifications;
+	final int? unreadNotificationCount;
 
 	const MainBottomBar({
 		super.key,
@@ -37,43 +39,79 @@ class MainBottomBar extends StatelessWidget {
 		required this.onRecipe,
 		required this.onShopping,
 		required this.onNotifications,
+		this.unreadNotificationCount,
 	});
 
+	@override
+	State<MainBottomBar> createState() => _MainBottomBarState();
+}
+
+class _MainBottomBarState extends State<MainBottomBar> {
+	@override
+	void initState() {
+		super.initState();
+		NotificationBadgeService.instance.ensureStarted();
+	}
+
 	Color _colorFor(int index) {
-		return currentIndex == index ? AppColors.textPrimary : AppColors.textSecondary;
+		return widget.currentIndex == index ? AppColors.textPrimary : AppColors.textSecondary;
 	}
 
 	@override
 	Widget build(BuildContext context) {
-		return BottomAppBar(
-			shape: const CircularNotchedRectangle(),
-			notchMargin: 8,
-			color: AppColors.surface,
-			child: Padding(
-				padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-				child: Row(
-					mainAxisAlignment: MainAxisAlignment.spaceBetween,
-					children: [
-						IconButton(
-							onPressed: onHome,
-							icon: Icon(Icons.home, color: _colorFor(0)),
+		return AnimatedBuilder(
+			animation: NotificationBadgeService.instance,
+			builder: (context, _) {
+				final unreadNotificationCount =
+					widget.unreadNotificationCount ?? NotificationBadgeService.instance.unreadCount;
+				return BottomAppBar(
+					shape: const CircularNotchedRectangle(),
+					notchMargin: 8,
+					color: AppColors.surface,
+					child: Padding(
+						padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+						child: Row(
+							mainAxisAlignment: MainAxisAlignment.spaceBetween,
+							children: [
+								IconButton(
+									onPressed: widget.onHome,
+									icon: Icon(Icons.home, color: _colorFor(0)),
+								),
+								IconButton(
+									onPressed: widget.onRecipe,
+									icon: Icon(Icons.restaurant_menu, color: _colorFor(1)),
+								),
+								const SizedBox(width: 48),
+								IconButton(
+									onPressed: widget.onShopping,
+									icon: Icon(Icons.shopping_cart_outlined, color: _colorFor(3)),
+								),
+								Stack(
+									children: [
+										IconButton(
+											onPressed: widget.onNotifications,
+											icon: Icon(Icons.notifications_none, color: _colorFor(4)),
+										),
+										if (unreadNotificationCount > 0)
+											Positioned(
+												right: 8,
+												top: 8,
+												child: Container(
+													width: 10,
+													height: 10,
+													decoration: const BoxDecoration(
+														color: Colors.red,
+														shape: BoxShape.circle,
+													),
+												),
+											),
+									],
+								),
+							],
 						),
-						IconButton(
-							onPressed: onRecipe,
-							icon: Icon(Icons.restaurant_menu, color: _colorFor(1)),
-						),
-						const SizedBox(width: 48),
-						IconButton(
-							onPressed: onShopping,
-							icon: Icon(Icons.shopping_cart_outlined, color: _colorFor(3)),
-						),
-						IconButton(
-							onPressed: onNotifications,
-							icon: Icon(Icons.notifications_none, color: _colorFor(4)),
-						),
-					],
-				),
-			),
+					),
+				);
+			},
 		);
 	}
 }

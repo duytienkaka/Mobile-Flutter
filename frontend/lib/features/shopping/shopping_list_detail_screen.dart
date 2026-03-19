@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/l10n/l10n_keys.dart';
+import '../../core/utils/pantry_scope.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/empty_state.dart';
@@ -23,9 +25,13 @@ class ShoppingListDetailScreen extends StatefulWidget {
 }
 
 class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
+	static final Set<String> _syncedListIds = <String>{};
+
 	bool _processing = false;
 	bool showCompleted = false;
 	late ShoppingService service;
+
+	bool get _isSyncedToPantry => _syncedListIds.contains(widget.list.id);
 
 	@override
 	void initState() {
@@ -103,7 +109,10 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 											children: [
 												Expanded(
 													child: Text(
-														'${context.tr('Đã hoàn thành')} ($completedCount ${context.tr('món')})',
+														context.trKey(
+															L10nKeys.shoppingCompletedItems,
+															params: {'count': completedCount},
+														),
 														style: AppTextStyles.subtitle,
 													),
 												),
@@ -124,17 +133,21 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 										),
 									const SizedBox(height: 24),
 									ElevatedButton.icon(
-										onPressed: _processing ? null : _onConfirmBuy,
+										onPressed: (_processing || _isSyncedToPantry) ? null : _onConfirmBuy,
 										icon: _processing
 												? const SizedBox(
 														width: 18,
 														height: 18,
 														child: CircularProgressIndicator(strokeWidth: 2),
 													)
-												: const Icon(Icons.check_circle),
-										label: Text(context.tr('Xác nhận đã mua & thêm vào tủ lạnh')),
+												: Icon(_isSyncedToPantry ? Icons.lock : Icons.check_circle),
+										label: Text(
+												_isSyncedToPantry
+													? context.tr('Đã thêm vào tủ lạnh')
+													: context.tr('Xác nhận đã mua & thêm vào tủ lạnh'),
+										),
 										style: ElevatedButton.styleFrom(
-											backgroundColor: AppColors.success,
+											backgroundColor: _isSyncedToPantry ? AppColors.textMuted : AppColors.success,
 											foregroundColor: Colors.white,
 											padding: const EdgeInsets.symmetric(vertical: 14),
 											shape: RoundedRectangleBorder(
@@ -162,6 +175,9 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 						color: AppColors.textMuted,
 					)
 				: AppTextStyles.subtitle;
+		String qtyStr = item.quantity % 1 == 0
+			? item.quantity.toInt().toString()
+			: item.quantity.toStringAsFixed(2);
 		return Container(
 			margin: const EdgeInsets.only(bottom: 12),
 			child: Row(
@@ -180,7 +196,7 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 							crossAxisAlignment: CrossAxisAlignment.start,
 							children: [
 								Text(
-									'${item.name} - ${item.quantity} ${item.unit}',
+									'${item.name} - $qtyStr ${item.unit}',
 									style: textStyle,
 								),
 								Divider(height: 16, color: AppColors.border),
@@ -193,13 +209,18 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 	}
 
 	Future<void> _onConfirmBuy() async {
+		if (_isSyncedToPantry) return;
 		setState(() => _processing = true);
 		try {
+			await PantryScope.ensureInitialized();
 			// Lấy các item chưa có trong pantry
 			final pantry = PantryService.instance;
 			await pantry.loadItems();
 			final pantryItems = pantry.items;
 			final toAdd = service.items.where((item) {
+				if (!PantryScope.isPantryManagedIngredient(item.name)) {
+					return false;
+				}
 				return !pantryItems.any((p) =>
 						p.name.toLowerCase() == item.name.toLowerCase());
 			}).toList();
@@ -213,6 +234,10 @@ class _ShoppingListDetailScreenState extends State<ShoppingListDetailScreen> {
 				);
 			}
 			await pantry.loadItems();
+			_syncedListIds.add(widget.list.id);
+			if (mounted) {
+				setState(() {});
+			}
 			// Đưa item mới lên đầu danh sách
 			if (toAdd.isNotEmpty) {
 				Navigator.of(context).pushReplacement(
@@ -287,6 +312,20 @@ class _AddShoppingItemSheetState extends State<_AddShoppingItemSheet> {
 		if (name.isEmpty) return;
 		final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 1;
 		final unit = _unitCtrl.text.trim().isEmpty ? 'pcs' : _unitCtrl.text.trim();
+		// Kiểm tra ngày hết hạn
+		final now = DateTime.now();
+		final today = DateTime(now.year, now.month, now.day);
+		final planDate = widget.service.activeListId != null
+			? widget.service.lists.firstWhere((l) => l.id == widget.service.activeListId).planDate
+			: today;
+		if (planDate.isBefore(today)) {
+			showTopSnackBar(
+				context,
+				context.tr('Không thể chọn ngày hết hạn nhỏ hơn ngày hiện tại.'),
+				isError: true,
+			);
+			return;
+		}
 		setState(() => _saving = true);
 		try {
 			await widget.service.addManualItem(
