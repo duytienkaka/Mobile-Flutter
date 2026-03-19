@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/widgets/top_snackbar.dart';
 import '../../../core/l10n/app_localizations.dart';
+import '../../../core/l10n/l10n_keys.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../planner/planner_service.dart';
@@ -55,7 +56,13 @@ class _TodayInstructionStepScreenState extends State<TodayInstructionStepScreen>
 							Row(
 								children: [
 									Text(
-										'${context.tr('Bước')} ${_index + 1}/$total',
+										context.trKey(
+											L10nKeys.commonStepProgress,
+											params: {
+												'current': _index + 1,
+												'total': total,
+											},
+										),
 										style: AppTextStyles.caption,
 									),
 									const Spacer(),

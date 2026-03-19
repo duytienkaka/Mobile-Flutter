@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:frontend/features/shopping/shopping_service.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../../../core/api/api_client.dart';
-import '../../../core/storage/token_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TodayIngredient {
@@ -150,6 +148,7 @@ class TodayService extends ChangeNotifier {
 	SharedPreferences? _prefs;
 	int _selectedFullIndex = -1;
 	int _selectedNearIndex = -1;
+	String _activeDateKey = _todayKey();
 
 	List<TodayRecipe> get fullRecipes => List.unmodifiable(_full);
 	List<TodayRecipe> get nearRecipes => List.unmodifiable(_near);
@@ -178,6 +177,7 @@ class TodayService extends ChangeNotifier {
 	}
 
 	Future<void> loadTab(TodayTabType tab, {bool refresh = false}) async {
+		_syncDailyStateIfNeeded();
 		if (_loading) return;
 		if (!refresh && _loadedTabs.contains(tab)) return;
 		_loading = true;
@@ -186,10 +186,7 @@ class TodayService extends ChangeNotifier {
 		notifyListeners();
 		try {
 			if (refresh) {
-				final streamed = await _loadSuggestionsStream(tab);
-				if (!streamed) {
-					await _loadSuggestionsNonStream(tab: tab, refresh: true);
-				}
+				await _refreshUntilChanged(tab);
 			} else {
 				await _loadSuggestionsNonStream(tab: tab, refresh: false);
 			}
@@ -212,6 +209,25 @@ class TodayService extends ChangeNotifier {
 		}
 	}
 
+	Future<void> _refreshUntilChanged(TodayTabType tab) async {
+		final before = _signature(_tabList(tab));
+		for (var attempt = 0; attempt < 2; attempt++) {
+			await _loadSuggestionsNonStream(tab: tab, refresh: true);
+			final after = _signature(_tabList(tab));
+			if (after != before || _tabList(tab).isEmpty) {
+				return;
+			}
+			await Future.delayed(const Duration(milliseconds: 250));
+		}
+	}
+
+	String _signature(List<TodayRecipe> recipes) {
+		return recipes
+			.map((r) => r.name.trim().toLowerCase())
+			.where((name) => name.isNotEmpty)
+			.join('|');
+	}
+
 	Future<void> _loadSuggestionsNonStream({
 		required TodayTabType tab,
 		required bool refresh,
@@ -232,100 +248,27 @@ class TodayService extends ChangeNotifier {
 		await _saveTabCache(tab);
 	}
 
-	Future<bool> _loadSuggestionsStream(TodayTabType tab) async {
-		try {
-			final previous = List<TodayRecipe>.from(_tabList(tab));
-			final previousIndex = selectedIndex(tab);
-			var receivedAny = false;
 
-			final token = await TokenStorage.getToken();
-			final headers = <String, String>{
-				'Content-Type': 'application/json',
-				'Accept': 'application/x-ndjson',
-			};
-			if (token != null) {
-				headers['Authorization'] = 'Bearer $token';
-			}
-
-			final uri = Uri.parse('${ApiClient.baseUrl}/recipes/today/stream')
-					.replace(queryParameters: {
-						'tab': _tabParam(tab),
-						'refresh': 'true'
-					});
-			final client = http.Client();
-			final request = http.Request('GET', uri);
-			request.headers.addAll(headers);
-			final response = await client.send(request);
-
-			if (response.statusCode != 200) {
-				final body = await response.stream.bytesToString();
-				client.close();
-				_tabErrors[tab] = _extractErrorFromBody(response.statusCode, body);
-				_error = _tabErrors[tab];
-				return false;
-			}
-
-			final stream = response.stream
-					.transform(utf8.decoder)
-					.transform(const LineSplitter());
-
-			await for (final line in stream) {
-				final trimmed = line.trim();
-				if (trimmed.isEmpty) continue;
-				final data = jsonDecode(trimmed);
-				if (data is! Map<String, dynamic>) continue;
-				final type = data['type']?.toString();
-				if (type == 'done') break;
-				final item = data['item'];
-				if (item is Map<String, dynamic>) {
-					if (!receivedAny) {
-						_clearTab(tab);
-						receivedAny = true;
-					}
-					_appendStreamItem(type, item);
-				}
-			}
-
-			if (!receivedAny) {
-				_restoreTabFromSnapshot(tab, previous, previousIndex);
-			}
-			await _saveTabCache(tab);
-
-			client.close();
-			return true;
-		} catch (err) {
-			_tabErrors[tab] = err.toString();
-			_error = err.toString();
-			return false;
-		}
-	}
-
-	void _restoreTabFromSnapshot(
-		TodayTabType tab,
-		List<TodayRecipe> items,
-		int selectedIndex,
-	) {
-		switch (tab) {
-			case TodayTabType.full:
-				_full = List<TodayRecipe>.from(items);
-				_selectedFullIndex = _full.isEmpty ? -1 : selectedIndex.clamp(0, _full.length - 1);
-				break;
-			case TodayTabType.near:
-				_near = List<TodayRecipe>.from(items);
-				_selectedNearIndex = _near.isEmpty ? -1 : selectedIndex.clamp(0, _near.length - 1);
-				break;
-		}
-		notifyListeners();
-	}
 
 	void _applyResponse(dynamic data, TodayTabType tab) {
 		switch (tab) {
 			case TodayTabType.full:
 				_full = _capList(_parseList(data, 'fullRecipes'), _fullMax);
+				// fallback nếu không có dữ liệu
+				if (_full.isEmpty) {
+					_full = _capList(_parseList(data, 'recipes'), _fullMax);
+				}
 				_selectedFullIndex = _full.isEmpty ? -1 : 0;
 				break;
 			case TodayTabType.near:
 				_near = _capList(_parseList(data, 'nearRecipes'), _nearMax);
+				// fallback nếu không có dữ liệu
+				if (_near.isEmpty) {
+					_near = _capList(_parseList(data, 'recipes'), _nearMax);
+				}
+				if (_near.isEmpty) {
+					_near = _capList(_parseList(data, 'data'), _nearMax);
+				}
 				_selectedNearIndex = _near.isEmpty ? -1 : 0;
 				break;
 		}
@@ -386,7 +329,20 @@ class TodayService extends ChangeNotifier {
 		}
 	}
 
-	String _cacheKey(TodayTabType tab) => 'today_tab_${_tabParam(tab)}';
+	String _cacheKey(TodayTabType tab) => 'today_tab_${_tabParam(tab)}_$_activeDateKey';
+
+	void _syncDailyStateIfNeeded() {
+		final current = _todayKey();
+		if (current == _activeDateKey) return;
+		_activeDateKey = current;
+		_loadedTabs.clear();
+		_tabErrors.clear();
+	}
+
+	static String _todayKey() {
+		final now = DateTime.now();
+		return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+	}
 
 	List<TodayRecipe> _tabList(TodayTabType tab) {
 		switch (tab) {
@@ -397,35 +353,7 @@ class TodayService extends ChangeNotifier {
 		}
 	}
 
-	void _clearTab(TodayTabType tab) {
-		switch (tab) {
-			case TodayTabType.full:
-				_full = [];
-				_selectedFullIndex = -1;
-				break;
-			case TodayTabType.near:
-				_near = [];
-				_selectedNearIndex = -1;
-				break;
-		}
-	}
 
-	void _appendStreamItem(String? type, Map<String, dynamic> item) {
-		final recipe = _fromApi(item);
-		switch (type) {
-			case 'full':
-				if (_full.length >= _fullMax) return;
-				_full.add(recipe);
-				if (_selectedFullIndex == -1) _selectedFullIndex = 0;
-				break;
-			case 'near':
-				if (_near.length >= _nearMax) return;
-				_near.add(recipe);
-				if (_selectedNearIndex == -1) _selectedNearIndex = 0;
-				break;
-		}
-		notifyListeners();
-	}
 
 	String _tabParam(TodayTabType tab) {
 		switch (tab) {
@@ -441,23 +369,6 @@ class TodayService extends ChangeNotifier {
 		return items.take(max).toList();
 	}
 
-	String _extractErrorFromBody(int statusCode, String body) {
-		try {
-			final data = jsonDecode(body);
-			if (data is Map && data['message'] is String) {
-				final message = (data['message'] as String).trim();
-				if (message.isNotEmpty) return message;
-			}
-		} catch (_) {}
-		switch (statusCode) {
-			case 401:
-				return 'Vui lòng đăng nhập lại.';
-			case 400:
-				return 'Dữ liệu không hợp lệ.';
-			default:
-				return 'Không thể tải gợi ý.';
-		}
-	}
 
 	void _useFallback() {
 		_error = null;

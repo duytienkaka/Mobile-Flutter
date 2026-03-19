@@ -6,6 +6,8 @@ import '../core/storage/token_storage.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/l10n/app_localizations.dart';
+import '../core/l10n/l10n_keys.dart';
+import '../core/widgets/app_dialogs.dart';
 import '../features/notification/notification_screen.dart';
 import '../features/pantry/pantry_screen.dart';
 import '../features/pantry/pantry_service.dart';
@@ -13,10 +15,10 @@ import '../features/pantry/pantry_item_model.dart';
 import '../features/shopping/shopping_screen.dart';
 import '../features/navigation/main_bottom_nav.dart';
 import '../features/settings/settings_screen.dart';
-import '../features/recipe/today/today_instruction_screen.dart';
+import '../features/recipe/today/today_confirm_screen.dart';
 import '../features/recipe/today/today_service.dart';
+import '../features/recipe/planner/planner_service.dart';
 import 'home_service.dart';
-import '../core/widgets/top_snackbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,39 +27,35 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 class _HomeScreenState extends State<HomeScreen> {
-    Widget _buildEmptyState() {
-      return Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.hourglass_empty, size: 64, color: AppColors.border),
-              const SizedBox(height: 16),
-              Text(
-                context.tr('Không có dữ liệu'),
-                style: AppTextStyles.caption,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
   String? fullName;
+  String? _avatarUrl;
   final PantryService _pantryService = PantryService.instance;
   final HomeAiService _homeService = HomeAiService.instance;
-  String _searchQuery = '';
-  bool _hasTriedGenerate = false;
+  final PlannerService _plannerService = PlannerService.instance;
 
   @override
   void initState() {
     super.initState();
     _loadNameFromToken();
+    _loadUserProfile();
     _homeService.addListener(_onHomeChanged);
-    // Defer loading to after first frame to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureWeeklyPlan();
       _pantryService.loadItems();
       _homeService.load();
     });
+  }
+
+  Future<void> _ensureWeeklyPlan() async {
+    try {
+      final preferences = await SettingsService.getWeeklyPlanPreferences();
+      await _plannerService.ensureWeeklyPlan(
+        weeklyBudget: preferences.weeklyBudget,
+        nutritionGoal: preferences.nutritionGoal,
+      );
+    } catch (_) {
+      // Keep login/home flow smooth even when weekly auto-plan API is temporarily unavailable.
+    }
   }
 
   @override
@@ -78,6 +76,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final name = _readJwtClaim(token, 'unique_name');
     if (!mounted) return;
     setState(() => fullName = name);
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await SettingsService.getProfile();
+      if (!mounted) return;
+      setState(() {
+        if (profile.fullName.trim().isNotEmpty) {
+          fullName = profile.fullName;
+        }
+        _avatarUrl = profile.avatarUrl;
+      });
+    } catch (_) {
+      // Keep token-based name fallback and initials when profile fetch fails.
+    }
   }
 
   String? _readJwtClaim(String token, String claimKey) {
@@ -105,12 +118,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  bool get _isEmptyState {
-    return !_homeService.isLoading &&
-        _homeService.recipes.isEmpty &&
-        _pantryService.items.isEmpty;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -127,120 +134,61 @@ class _HomeScreenState extends State<HomeScreen> {
         onNotifications: () => _openScreen(const NotificationScreen()),
       ),
       body: SafeArea(
-        child: _isEmptyState
-            ? _buildEmptyState()
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(fullName),
-                    const SizedBox(height: 20),
-                    _buildSearchBar(),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.tr('Món bạn có thể nấu'),
-                      style: AppTextStyles.subtitle,
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(height: 230, child: _buildHomeRecipeSection()),
-                    const SizedBox(height: 18),
-                    Text(
-                      context.tr('Sắp hết hạn'),
-                      style: AppTextStyles.subtitle,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildExpiringSoonSection(),
-                    const SizedBox(height: 20),
-                    Text(
-                      context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
-                      style: AppTextStyles.subtitle,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildHomeTipsSection(),
-                  ],
-                ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(fullName),
+              const SizedBox(height: 20),
+              Text(
+                context.tr('Món bạn có thể nấu'),
+                style: AppTextStyles.subtitle,
               ),
+              const SizedBox(height: 12),
+              SizedBox(height: 302, child: _buildHomeRecipeSection()),
+              const SizedBox(height: 18),
+              Text(
+                context.tr('Sắp hết hạn'),
+                style: AppTextStyles.subtitle,
+              ),
+              const SizedBox(height: 12),
+              _buildExpiringSoonSection(),
+              const SizedBox(height: 20),
+              Text(
+                context.tr('Mẹo bảo quản thực phẩm (Daily Tips)'),
+                style: AppTextStyles.subtitle,
+              ),
+              const SizedBox(height: 12),
+              _buildHomeTipsSection(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHomeRecipeSection() {
-    final filteredRecipes = _homeService.recipes
-        .where(
-          (recipe) =>
-              recipe.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              recipe.tags.any(
-                (tag) => tag.toLowerCase().contains(_searchQuery.toLowerCase()),
-              ),
-        )
-        .toList();
-
     if (_homeService.recipes.isEmpty) {
       final message =
           _homeService.error?.replaceFirst('Exception: ', '') ??
           context.tr('Chưa có kế hoạch');
-      return Center(child: Text(message, style: AppTextStyles.caption));
-    }
-
-    // If no filtered results and search is active, try to generate recipe
-    if (filteredRecipes.isEmpty && _searchQuery.isNotEmpty) {
-      // Generate recipe on first attempt
-      if (!_hasTriedGenerate) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _homeService.generateRecipeByName(_searchQuery);
-            setState(() => _hasTriedGenerate = true);
-          }
-        });
-      }
-
-      // Show loading while generating
-      if (_homeService.isGeneratingRecipe) {
-        return const Center(child: CircularProgressIndicator());
-      }
-
-      // Show generated recipe if available
-      if (_homeService.generatedRecipe != null) {
-        final recipe = _homeService.generatedRecipe!;
-        return GestureDetector(
-          onTap: () => _handleRecipeTap(recipe),
-          child: _buildAiRecipeCard(
-            title: recipe.name,
-            tags: recipe.tags,
-            time: '${recipe.timeMinutes} Min',
-            count: recipe.ingredientCount,
-          ),
-        );
-      }
-
-      // Show error if generation failed
-      if (_homeService.error != null) {
-        return Center(
-          child: Text(
-            context.tr('Không thể tạo công thức'),
-            style: AppTextStyles.caption,
-          ),
-        );
-      }
-
-      return Center(
-        child: Text(
-          context.tr('Không tìm thấy công thức nào'),
-          style: AppTextStyles.caption,
-        ),
+      return _buildSectionEmpty(
+        title: context.tr('Chưa có món gợi ý'),
+        message: message,
+        icon: Icons.restaurant_menu,
       );
     }
 
     return ListView.separated(
       scrollDirection: Axis.horizontal,
-      itemCount: filteredRecipes.length,
+      itemCount: _homeService.recipes.length,
       separatorBuilder: (_, _) => const SizedBox(width: 14),
       itemBuilder: (_, index) {
-        final recipe = filteredRecipes[index];
+        final recipe = _homeService.recipes[index];
         return GestureDetector(
           onTap: () => _handleRecipeTap(recipe),
           child: _buildAiRecipeCard(
@@ -253,43 +201,12 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
-  Widget _buildSearchBar() {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: context.tr('Tìm kiếm công thức'),
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: _searchQuery.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  setState(() {
-                    _searchQuery = '';
-                    _hasTriedGenerate = false;
-                  });
-                },
-              )
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-      ),
-      onChanged: (value) {
-        setState(() {
-          _searchQuery = value;
-          _hasTriedGenerate = false;
-        });
-      },
-    );
-  }
+  // Đã loại bỏ search bar và logic tìm kiếm công thức
 
   Widget _buildExpiringSoonSection() {
     final today = DateTime.now();
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final sectionHeight = (98 + ((textScale - 1) * 28)).clamp(98, 132).toDouble();
     final expiringSoonItems = _pantryService.items.where((item) {
       final expiredAt = item.expiredAt;
       if (expiredAt == null) return false;
@@ -299,26 +216,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
 
     if (expiringSoonItems.isEmpty) {
-      return Center(
-        child: Text(
-          context.tr('Không có mục nào sắp hết hạn'),
-          style: AppTextStyles.caption,
-        ),
+      return _buildSectionEmpty(
+        title: context.tr('Không có mục sắp hết hạn'),
+        message: context.tr('Tất cả thực phẩm của bạn đang còn hạn sử dụng tốt.'),
+        icon: Icons.check_circle_outline,
       );
     }
 
     return SizedBox(
-      height: 240,
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.9,
-        ),
+      height: sectionHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
         itemCount: expiringSoonItems.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final item = expiringSoonItems[index];
           return _buildExpiringSoonCard(item);
@@ -329,51 +239,122 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildExpiringSoonCard(PantryItemModel item) {
     final expiryDate = item.expiredAt ?? DateTime.now();
+    final today = _normalizeDate(DateTime.now());
+    final daysLeft = _normalizeDate(expiryDate).difference(today).inDays;
+
+    final bool isUrgent = daysLeft <= 1;
+    final bool isWarning = daysLeft == 2;
+
+    final Color badgeBg = isUrgent
+        ? const Color(0xFFFEE2E2)
+        : (isWarning ? const Color(0xFFFFEDD5) : const Color(0xFFFFF4CC));
+    final Color badgeText = isUrgent
+        ? const Color(0xFFB42318)
+        : (isWarning ? const Color(0xFFC2410C) : const Color(0xFF9A6700));
+    final Color borderColor = isUrgent
+        ? const Color(0xFFFECACA)
+        : (isWarning ? const Color(0xFFFED7AA) : AppColors.border);
+    final String statusText = isUrgent
+        ? context.tr('Cần dùng ngay')
+        : (isWarning ? context.tr('Sắp hết hạn') : context.tr('Nên dùng sớm'));
+    final String dayText = daysLeft <= 0
+        ? context.tr('Hết hạn hôm nay')
+        : 'Còn $daysLeft ngày nữa';
+
     return GestureDetector(
       onTap: () => _openScreen(const PantryScreen()),
       child: Container(
+        width: 232,
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
           children: [
             Container(
-              width: double.infinity,
-              height: 80,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: AppColors.surfaceSoft,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                ),
+                color: badgeBg,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.image, color: AppColors.textMuted, size: 30),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: badgeText,
+                size: 24,
+              ),
             ),
+            const SizedBox(width: 10),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      item.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.caption,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    Text(
-                      '${expiryDate.day.toString().padLeft(2, '0')}/${expiryDate.month.toString().padLeft(2, '0')}/${expiryDate.year}',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.warning,
-                        fontSize: 10,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: badgeBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          statusText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: AppTextStyles.caption.copyWith(
+                            color: badgeText,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${expiryDate.day.toString().padLeft(2, '0')}/${expiryDate.month.toString().padLeft(2, '0')}/${expiryDate.year}',
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(
+                            color: badgeText,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    dayText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -387,42 +368,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleRecipeTap(HomeAiRecipe recipe) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Nấu món này?')),
-        content: Text(context.tr('Bạn có muốn nấu món này không?')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.tr('Huỷ')),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(context.tr('Nấu món này')),
-          ),
-        ],
-      ),
+      title: context.tr('Nấu món này?'),
+      message: context.tr('Bạn có muốn nấu món này không?'),
+      cancelText: context.tr('Huỷ'),
+      confirmText: context.tr('Nấu món này'),
+      icon: Icons.restaurant_menu_rounded,
     );
 
-    if (confirm != true || !mounted) return;
+    if (!confirm || !mounted) return;
 
     final todayRecipe = _mapToTodayRecipe(recipe);
-    final missing = _findMissingIngredients(todayRecipe.ingredients);
-    if (missing.isNotEmpty) {
-      await TodayService.instance.addMissingIngredients(missing);
-      if (!mounted) return;
-      showTopSnackBar(
-        context,
-        context.tr('Đã thêm nguyên liệu thiếu vào danh sách mua sắm.'),
-        isError: false,
-      );
-      return;
-    }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TodayInstructionScreen(recipe: todayRecipe),
+        builder: (_) => TodayConfirmScreen(recipe: todayRecipe),
       ),
     );
   }
@@ -440,50 +401,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<TodayIngredient> _findMissingIngredients(
-    List<TodayIngredient> requiredItems,
-  ) {
-    final pantryNames = _pantryService.items
-        .map((item) => _normalizeName(item.name))
-        .where((name) => name.isNotEmpty)
-        .toSet();
-
-    final missing = <TodayIngredient>[];
-    for (final item in requiredItems) {
-      final normalized = _normalizeName(item.name);
-      if (normalized.isEmpty) continue;
-      if (!pantryNames.contains(normalized)) {
-        missing.add(item);
-      }
-    }
-
-    return missing;
-  }
-
-  String _normalizeName(String value) {
-    final trimmed = value.trim().toLowerCase();
-    final buffer = StringBuffer();
-    for (final rune in trimmed.runes) {
-      final char = String.fromCharCode(rune);
-      if (_isLetterOrDigit(char)) {
-        buffer.write(char);
-      } else {
-        buffer.write(' ');
-      }
-    }
-    final cleaned = buffer.toString();
-    return cleaned.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).join(' ');
-  }
-
-  bool _isLetterOrDigit(String value) {
-    final code = value.codeUnitAt(0);
-    if (code >= 48 && code <= 57) return true;
-    if (code >= 65 && code <= 90) return true;
-    if (code >= 97 && code <= 122) return true;
-    if (code > 127) return true;
-    return false;
-  }
-
   Widget _buildHomeTipsSection() {
     if (_homeService.isLoading && _homeService.tips.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -493,7 +410,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final message =
           _homeService.error?.replaceFirst('Exception: ', '') ??
           'Hôm nay chưa có mẹo phù hợp.';
-      return Text(message, style: AppTextStyles.caption);
+      return _buildSectionEmpty(
+        title: context.tr('Chưa có mẹo hôm nay'),
+        message: message,
+        icon: Icons.lightbulb_outline,
+      );
     }
 
     return Column(
@@ -518,10 +439,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeader(String? name) {
     final displayName = (name == null || name.trim().isEmpty)
         ? context.tr('Xin chào')
-        : '${context.tr('Xin chào')} $name';
+        : context.trKey(L10nKeys.commonHelloName, params: {'name': name});
 
-    final avatarUrl = null;
-    final avatarImage = SettingsService.resolveAvatarUrl(avatarUrl);
+    final avatarImage = SettingsService.resolveAvatarUrl(_avatarUrl);
     final initials = (name == null || name.isEmpty) ? 'U' : name[0].toUpperCase();
 
     return Row(
@@ -564,15 +484,59 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSectionEmpty({
+    required String title,
+    required String message,
+    required IconData icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.subtitle),
+                const SizedBox(height: 4),
+                Text(message, style: AppTextStyles.caption),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static Widget _buildAiRecipeCard({
     required String title,
     required List<String> tags,
     required String time,
     required int count,
   }) {
+    final displayTags = tags.length <= 2
+        ? tags
+        : [tags[0], tags[1], '+${tags.length - 2}'];
+
     return SizedBox(
-      width: 200,
-      height: 210,
+      width: 212,
+      height: 282,
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
         decoration: BoxDecoration(
@@ -666,23 +630,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: tags.map((tag) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceSoft,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Text(tag, style: AppTextStyles.caption),
-                    );
-                  }).toList(),
+                SizedBox(
+                  height: 28,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: displayTags.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (_, index) {
+                      final tag = displayTags[index];
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Center(
+                          child: Text(tag, style: AppTextStyles.caption),
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 const Spacer(),
                 Row(

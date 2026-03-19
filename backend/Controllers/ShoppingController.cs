@@ -232,6 +232,29 @@ public class ShoppingController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("lists/{id:guid}")]
+    public async Task<IActionResult> DeleteList(Guid id)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var list = await _db.ShoppingLists
+            .Include(l => l.Items)
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId);
+
+        if (list == null) return NotFound();
+
+        if (list.Items.Count > 0)
+        {
+            _db.ShoppingItems.RemoveRange(list.Items);
+        }
+
+        _db.ShoppingLists.Remove(list);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     private async Task<ShoppingList> GetOrCreateList(Guid userId)
     {
         var list = await _db.ShoppingLists

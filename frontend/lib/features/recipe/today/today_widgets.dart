@@ -17,6 +17,7 @@ class TodayTabButton extends StatelessWidget {
 	@override
 	Widget build(BuildContext context) {
 		final textColor = selected ? AppColors.surface : AppColors.textSecondary;
+		final backgroundColor = selected ? AppColors.textPrimary : AppColors.surfaceSoft;
 
 		return GestureDetector(
 			onTap: onTap,
@@ -26,8 +27,9 @@ class TodayTabButton extends StatelessWidget {
 				   height: 48,
 				   padding: const EdgeInsets.symmetric(vertical: 0),
 				decoration: BoxDecoration(
-					color: selected ? AppColors.black : const Color(0xFFD9D9D9),
+					color: backgroundColor,
 					borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+					border: Border.all(color: AppColors.border),
 				),
 				child: Center(
 					child: Text(

@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/core/widgets/top_snackbar.dart';
-import 'package:frontend/features/shopping/shopping_list_detail_screen.dart';
-import 'package:frontend/features/shopping/shopping_screen.dart';
-import 'package:frontend/features/shopping/shopping_service.dart';
 import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -45,10 +42,10 @@ class _TodayTabState extends State<TodayTab> {
   Widget build(BuildContext context) {
     final tabType = _selectedTab == 0
         ? TodayTabType.full
-      : TodayTabType.near;
+        : TodayTabType.near;
     final recipes = tabType == TodayTabType.full
         ? _service.fullRecipes
-      : _service.nearRecipes;
+        : _service.nearRecipes;
     final selectedIndex = _service.selectedIndex(tabType);
     final hasRecipe = selectedIndex >= 0;
     final showLoading = _service.isLoadingFor(tabType) && recipes.isEmpty;
@@ -65,7 +62,6 @@ class _TodayTabState extends State<TodayTab> {
     }
     return Column(
       children: [
-        // Tabs row: no extra container, just the Row for visual consistency
         Row(
           children: [
             Expanded(
@@ -90,48 +86,55 @@ class _TodayTabState extends State<TodayTab> {
             ),
           ],
         ),
-        // ...existing code...
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.black,
+            color: AppColors.surface,
             borderRadius: const BorderRadius.vertical(
               bottom: Radius.circular(20),
             ),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD8DCF1),
+                  color: AppColors.surfaceSoft,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: SizedBox(
-                  height: 210,
+                  height: 260,
                   child: showLoading
                       ? const Center(child: CircularProgressIndicator())
                       : recipes.isEmpty
                           ? Center(
-                              child: tabType == TodayTabType.near
+                              child: tabType == TodayTabType.full
                                   ? Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Text(
-                                          context.tr('Chưa có kế hoạch'),
-                                          style: AppTextStyles.caption,
+                                        Icon(
+                                          Icons.info_outline,
+                                          color: AppColors.textMuted,
+                                          size: 30,
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          context.tr('Số lượng thực phẩm Không đủ để đưa ra gợi ý!'),
+                                          style: AppTextStyles.caption,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    )
+                                  : Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
                                         Text(
                                           context.tr('Đang gợi ý 3 món ăn dinh dưỡng từ AI. Không phụ thuộc nguyên liệu trong tủ lạnh.'),
                                           style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
                                           textAlign: TextAlign.center,
                                         ),
                                       ],
-                                    )
-                                  : Text(
-                                      context.tr('Chưa có kế hoạch'),
-                                      style: AppTextStyles.caption,
                                     ),
                             )
                           : ListView.separated(
@@ -139,14 +142,21 @@ class _TodayTabState extends State<TodayTab> {
                               itemCount: recipes.length,
                               separatorBuilder: (_, _) =>
                                   const SizedBox(width: 12),
-                              itemBuilder: (_, index) => GestureDetector(
-                                onTap: () =>
-                                    _service.selectRecipe(tabType, index),
-                                child: _buildRecipeCard(
-                                  recipes[index],
-                                  selectedIndex == index,
-                                ),
-                              ),
+                              itemBuilder: (_, index) {
+                                final recipe = recipes[index];
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _service.selectRecipe(tabType, index),
+                                      child: _buildRecipeCard(
+                                        recipe,
+                                        selectedIndex == index,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                 ),
               ),
@@ -160,7 +170,7 @@ class _TodayTabState extends State<TodayTab> {
                           : () => _service.loadTab(tabType, refresh: true),
                       style: OutlinedButton.styleFrom(
                         backgroundColor: AppColors.surface,
-                        foregroundColor: AppColors.black,
+                        foregroundColor: AppColors.textPrimary,
                         side: BorderSide(
                           color: AppColors.border,
                         ),
@@ -181,9 +191,9 @@ class _TodayTabState extends State<TodayTab> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: hasRecipe
                             ? AppColors.primary
-                            : const Color(0xFFD9D9D9),
+                            : AppColors.surfaceSoft,
                         foregroundColor:
-                            hasRecipe ? AppColors.black : AppColors.surface,
+                            hasRecipe ? AppColors.textPrimary : AppColors.textMuted,
                         padding: const EdgeInsets.symmetric(
                           vertical: 14,
                         ),
@@ -206,43 +216,11 @@ class _TodayTabState extends State<TodayTab> {
   Future<void> _handleCook(TodayTabType tab) async {
     final recipe = _service.selectedRecipe(tab) ?? _buildFallbackRecipe();
     if (!mounted) return;
-    if (tab == TodayTabType.full && recipe.missingIngredients.isNotEmpty) {
-      // Nếu là tab "Nguyên liệu đã đủ" nhưng vẫn còn nguyên liệu thiếu (trường hợp hiếm),
-      // thì chuyển sang shopping list và mở list đầu tiên (nếu có)
-      // Đầu tiên, đảm bảo đã thêm các nguyên liệu thiếu vào shopping list
-      await TodayService.instance.addMissingIngredients(recipe.missingIngredients);
-      // Load lại danh sách shopping list
-      final shoppingService = await _getShoppingService(context);
-      await shoppingService.loadLists();
-      if (!mounted) return;
-      if (shoppingService.lists.isNotEmpty) {
-        final list = shoppingService.lists.first;
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ShoppingListDetailScreen(list: list),
-          ),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ShoppingScreen(),
-          ),
-        );
-      }
-      showTopSnackBar(context, 'Đã thêm thực phẩm cần mua vào giỏ hàng!', isError: false);
-    } else {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TodayConfirmScreen(recipe: recipe),
-        ),
-      );
-    }
-  }
-
-  // Helper để lấy ShoppingService instance từ context hoặc singleton
-  Future<ShoppingService> _getShoppingService(BuildContext context) async {
-    // Nếu đã có instance thì trả về luôn
-    return ShoppingService.instance;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TodayConfirmScreen(recipe: recipe),
+      ),
+    );
   }
 
   TodayRecipe _buildFallbackRecipe() {
@@ -268,6 +246,8 @@ class _TodayTabState extends State<TodayTab> {
   Widget _buildRecipeCard(TodayRecipe recipe, bool selected) {
     final tags = _buildTags(recipe.ingredients);
     final timeLabel = '${recipe.timeMinutes} Min';
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final adjustedHeight = _adaptiveCardHeight(textScale);
     return Stack(
       children: [
         RecipeCard(
@@ -277,6 +257,7 @@ class _TodayTabState extends State<TodayTab> {
           time: timeLabel,
           count: recipe.ingredients.length,
           showImage: false,
+          height: adjustedHeight,
         ),
         if (selected)
           Positioned.fill(
@@ -301,5 +282,11 @@ class _TodayTabState extends State<TodayTab> {
     final names = ingredients.map((e) => e.name).toList();
     if (names.length <= 3) return names;
     return [names[0], names[1], '+${names.length - 2}'];
+  }
+
+  double _adaptiveCardHeight(double textScale) {
+    final scale = textScale.clamp(1.0, 1.6);
+    final reduced = 240 - ((scale - 1.0) * 28);
+    return reduced.clamp(214, 240).toDouble();
   }
 }

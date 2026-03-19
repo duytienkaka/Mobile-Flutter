@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/app_dialogs.dart';
 import '../../core/widgets/top_snackbar.dart';
 import '../auth/login_screen.dart';
 import '../navigation/main_bottom_nav.dart';
@@ -20,6 +21,7 @@ import '../recipe/recipe_screen.dart';
 import '../shopping/shopping_screen.dart';
 import '../../home/home_screen.dart';
 import 'settings_service.dart';
+import 'pantry_keyword_settings_screen.dart';
 import 'policy_screens.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -140,24 +142,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Đăng xuất')),
-        content: Text(context.tr('Bạn chắc chắn muốn đăng xuất?')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.tr('Huỷ')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.tr('Đăng xuất')),
-          ),
-        ],
-      ),
+      title: context.tr('Đăng xuất'),
+      message: context.tr('Bạn chắc chắn muốn đăng xuất?'),
+      cancelText: context.tr('Huỷ'),
+      confirmText: context.tr('Đăng xuất'),
+      isDanger: true,
+      icon: Icons.logout_rounded,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     await TokenStorage.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -294,28 +288,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (picked == null || !mounted) return;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppConfirmDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Dùng ảnh này?')),
-        content: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(File(picked.path), height: 180, fit: BoxFit.cover),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(context.tr('Không')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(context.tr('Sử dụng')),
-          ),
-        ],
+      title: context.tr('Dùng ảnh này?'),
+      message: context.tr('Xác nhận cập nhật ảnh đại diện mới.'),
+      cancelText: context.tr('Không'),
+      confirmText: context.tr('Sử dụng'),
+      icon: Icons.image_outlined,
+      extraContent: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(File(picked.path), height: 180, fit: BoxFit.cover),
       ),
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     try {
       final profile = await SettingsService.uploadAvatar(File(picked.path));
       if (!mounted) return;
@@ -375,6 +361,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.of(
       context,
     ).pushReplacement(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _openPantryKeywordSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PantryKeywordSettingsScreen(),
+      ),
+    );
   }
 
   @override
@@ -552,6 +546,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ? context.tr('Bật')
                               : context.tr('Tắt'),
                           onTap: _toggleNotifications,
+                        ),
+                        Divider(height: 1, color: AppColors.border),
+                        _SettingsRow(
+                          icon: Icons.kitchen_outlined,
+                          title: 'Danh sách gia vị mặc định',
+                          onTap: _openPantryKeywordSettings,
                         ),
                       ],
                     ),

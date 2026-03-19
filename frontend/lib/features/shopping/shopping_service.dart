@@ -5,6 +5,23 @@ import 'shopping_item_model.dart';
 import 'shopping_list_model.dart';
 
 class ShoppingService extends ChangeNotifier {
+		Future<void> deleteList(String id) async {
+			final index = _lists.indexWhere((list) => list.id == id);
+			if (index == -1) return;
+			final removed = _lists[index];
+			_lists.removeAt(index);
+			notifyListeners();
+			try {
+				final res = await ApiClient.delete('/shopping/lists/$id', auth: true);
+				if (res.statusCode != 204 && res.statusCode != 200) {
+					throw Exception(_extractError(res));
+				}
+			} catch (_) {
+				_lists.insert(index, removed);
+				notifyListeners();
+				await loadLists();
+			}
+		}
 	static final ShoppingService instance = ShoppingService._();
 
 	final List<ShoppingItemModel> _items = [];

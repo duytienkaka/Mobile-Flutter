@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/top_snackbar.dart';
 import '../../core/l10n/app_localizations.dart';
+import '../../core/l10n/l10n_keys.dart';
 import '../../home/home_screen.dart';
 import 'dart:async';
 
@@ -83,7 +84,10 @@ class _OtpScreenState extends State<OtpScreen> {
                   Text(context.tr('Xác thực OTP'), style: _titleStyle),
                   const SizedBox(height: 6),
                   Text(
-                    '${context.tr('Mã xác thực đã được gửi đến số điện thoại')}\n${widget.phone}',
+                    context.trKey(
+                      L10nKeys.authOtpSentToPhone,
+                      params: {'phone': widget.phone},
+                    ),
                     textAlign: TextAlign.center,
                     style: TextStyle(color: _colors.textSecondary),
                   ),
@@ -110,7 +114,11 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                    Text('${context.tr('Mã hết hạn sau')} ${_remainingSeconds}s',
+                    Text(
+                      context.trKey(
+                        L10nKeys.authOtpExpiresInSeconds,
+                        params: {'seconds': _remainingSeconds},
+                      ),
                       style: TextStyle(color: _colors.textMuted, fontSize: 12)),
                   const SizedBox(height: 16),
                   SizedBox(

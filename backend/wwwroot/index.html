@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mobile Flutter - Trợ lý tủ lạnh thông minh</title>
+    <meta
+      name="description"
+      content="Mobile Flutter giúp bạn quản lý tủ lạnh, lập kế hoạch bữa ăn và tạo danh sách mua sắm thông minh."
+    />
+    <meta name="keywords" content="quản lý tủ lạnh, meal planner, shopping list, flutter app, trợ lý nấu ăn" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://mobile-flutter.app/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:title" content="Mobile Flutter - Trợ lý tủ lạnh thông minh" />
+    <meta
+      property="og:description"
+      content="Quản lý pantry, gợi ý món ăn, lập kế hoạch bữa ăn và tạo danh sách mua sắm thông minh."
+    />
+    <meta property="og:url" content="https://mobile-flutter.app/" />
+    <meta property="og:image" content="https://mobile-flutter.app/uploads/avatars/652a3e21a8434314889e9d21fb2542ca_20260319034022.jpg" />
+    <meta property="og:image:alt" content="Mobile Flutter app preview" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mobile Flutter - Trợ lý tủ lạnh thông minh" />
+    <meta
+      name="twitter:description"
+      content="Ứng dụng giúp quản lý tủ lạnh, gợi ý món ăn và mua sắm thông minh."
+    />
+    <meta name="twitter:image" content="https://mobile-flutter.app/uploads/avatars/652a3e21a8434314889e9d21fb2542ca_20260319034022.jpg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/site.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">MF</div>
+        <div>
+          <p class="brand-name">Mobile Flutter</p>
+          <p class="brand-sub">Quản lý tủ lạnh thông minh</p>
+        </div>
+      </div>
+      <a class="ghost-btn" href="#download">Tải ứng dụng</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Sẵn sàng để triển khai</p>
+          <h1>
+            Biến việc nấu ăn mỗi ngày
+            <span>dễ hơn và tiết kiệm hơn</span>
+          </h1>
+          <p class="hero-text">
+            Theo dõi thực phẩm trong tủ lạnh, nhận gợi ý món ăn theo nguyên liệu hiện có,
+            tạo danh sách mua sắm và lập kế hoạch bữa ăn cho cả tuần - tất cả trong một ứng dụng.
+          </p>
+
+          <div class="hero-badges">
+            <span class="hero-badge">Có sẵn QR tải APK</span>
+            <span class="hero-badge">Hỗ trợ Planner tuần</span>
+            <span class="hero-badge">Gợi ý món ăn thông minh</span>
+          </div>
+
+          <div class="hero-actions" id="download">
+            <button id="downloadApkBtn" class="primary-btn" type="button">
+              Tải APK (Android)
+            </button>
+            <p class="download-hint">
+              Bản Android thử nghiệm đã sẵn sàng để tải trực tiếp từ website này.
+            </p>
+          </div>
+        </div>
+
+        <div class="hero-mock">
+          <div class="phone-card">
+            <p class="phone-title">Hôm nay ăn gì?</p>
+            <div class="line"></div>
+            <div class="pill-row">
+              <span class="pill active">Đã đủ</span>
+              <span class="pill">Dinh dưỡng</span>
+            </div>
+            <div class="meal-box"></div>
+            <div class="meal-box short"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-grid">
+        <article class="feature-card">
+          <h3>Quản lý Pantry</h3>
+          <p>Thêm, sửa, xóa thực phẩm trong tủ lạnh và nhắc hạn sử dụng.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Gợi ý món ăn</h3>
+          <p>Gợi ý món theo pantry hiện tại và đồng bộ với planner theo ngày.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Mua sắm thông minh</h3>
+          <p>Tự động tạo danh sách mua sắm khi thiếu nguyên liệu.</p>
+        </article>
+        <article class="feature-card">
+          <h3>Planner tuần</h3>
+          <p>Lập lịch bữa sáng, trưa, tối để chủ động cho cả tuần.</p>
+        </article>
+      </section>
+
+      <section class="stats-strip" aria-label="Số liệu nổi bật">
+        <article class="stat-item">
+          <p class="stat-value">4 tính năng</p>
+          <p class="stat-label">Pantry, Planner, Shopping, Gợi ý món</p>
+        </article>
+        <article class="stat-item">
+          <p class="stat-value">1 ứng dụng</p>
+          <p class="stat-label">Quản lý toàn bộ quy trình nấu ăn tại nhà</p>
+        </article>
+        <article class="stat-item">
+          <p class="stat-value">0 thao tác thừa</p>
+          <p class="stat-label">Luồng đơn giản, ưu tiên trải nghiệm nhanh</p>
+        </article>
+      </section>
+
+      <section class="workflow" id="quy-trinh">
+        <div class="section-head">
+          <p class="eyebrow">Quy trình</p>
+          <h2>3 bước để đi từ nguyên liệu đến bữa ăn</h2>
+        </div>
+        <div class="workflow-grid">
+          <article class="workflow-card">
+            <p class="step">Bước 1</p>
+            <h3>Cập nhật tủ lạnh</h3>
+            <p>Nhập nhanh các nguyên liệu hiện có, theo dõi định lượng và hạn dùng.</p>
+          </article>
+          <article class="workflow-card">
+            <p class="step">Bước 2</p>
+            <h3>Chọn món phù hợp</h3>
+            <p>Nhận danh sách món ăn đề xuất theo pantry và mục tiêu dinh dưỡng trong tuần.</p>
+          </article>
+          <article class="workflow-card">
+            <p class="step">Bước 3</p>
+            <h3>Mua đúng thứ cần mua</h3>
+            <p>Tự động tạo shopping list theo món đã chọn để tránh mua thiếu hoặc thừa.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="screenshots" id="screenshots">
+        <div class="section-head">
+          <p class="eyebrow">Ảnh chụp ứng dụng</p>
+          <h2>Giao diện thực tế từ Mobile Flutter</h2>
+        </div>
+        <div class="shot-grid">
+          <figure class="shot-card">
+            <img src="/uploads/avatars/652a3e21a8434314889e9d21fb2542ca_20260319034022.jpg" alt="Màn hình gợi ý món ăn" loading="lazy" />
+            <figcaption>Gợi ý món ăn theo nguyên liệu hiện có</figcaption>
+          </figure>
+          <figure class="shot-card">
+            <img src="/uploads/avatars/403f0aed87fd4060a548d9de978848ea_20260204153754.jpg" alt="Màn hình quản lý pantry" loading="lazy" />
+            <figcaption>Quản lý pantry và hạn sử dụng theo ngày</figcaption>
+          </figure>
+          <figure class="shot-card">
+            <img src="/uploads/avatars/652a3e21a8434314889e9d21fb2542ca_20260319034022.jpg" alt="Màn hình planner tuần" loading="lazy" />
+            <figcaption>Planner tuần và danh sách mua sắm đồng bộ</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="download-zone">
+        <div class="download-copy">
+          <h2>Quét QR để tải nhanh APK</h2>
+          <p>
+            Mở camera hoặc ứng dụng quét QR, sau đó mở liên kết để tải file APK của Mobile Flutter.
+          </p>
+          <p class="download-hint">Nếu APK đang được cập nhật, bạn có thể thử lại sau vài phút.</p>
+        </div>
+        <div class="qr-card">
+          <img id="apkQrImage" src="" alt="QR tải APK" />
+          <p id="apkUrlText"></p>
+        </div>
+      </section>
+
+      <section class="faq" id="faq">
+        <div class="section-head">
+          <p class="eyebrow">Câu hỏi thường gặp</p>
+          <h2>Thông tin nhanh trước khi bạn deploy</h2>
+        </div>
+        <div class="faq-grid">
+          <article class="faq-item">
+            <h3>Ứng dụng hỗ trợ nền tảng nào?</h3>
+            <p>Hiện tại trang này cung cấp bản APK cho Android để cài đặt nhanh.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Có cần đăng nhập mới dùng được không?</h3>
+            <p>Bạn có thể trải nghiệm các tính năng cốt lõi sau khi đăng ký tài khoản trong ứng dụng.</p>
+          </article>
+          <article class="faq-item">
+            <h3>Dữ liệu pantry có đồng bộ theo tài khoản không?</h3>
+            <p>Có. Pantry, planner và shopping list được quản lý theo người dùng trên backend.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="cta-strip">
+        <h2>Bắt đầu cùng Mobile Flutter</h2>
+        <p>
+          Bạn quản lý bếp thông minh hơn, giảm lãng phí thực phẩm và không còn đau đầu
+          "hôm nay ăn gì".
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Mobile Flutter © <span id="year"></span></p>
+      <p>Backend ASP.NET + Ứng dụng Flutter</p>
+    </footer>
+
+    <script src="/site.js"></script>
+  </body>
+</html>

@@ -10,6 +10,7 @@ class RecipeCard extends StatelessWidget {
 	final int count;
 	final VoidCallback? onTap;
 	final bool showImage;
+	final double height;
 
 	const RecipeCard({
 		super.key,
@@ -21,6 +22,7 @@ class RecipeCard extends StatelessWidget {
 		required this.count,
 		this.onTap,
 		this.showImage = true,
+		this.height = 260,
 	});
 
 	@override
@@ -33,6 +35,7 @@ class RecipeCard extends StatelessWidget {
 			borderRadius: BorderRadius.circular(16),
 			child: SizedBox(
 				width: 200,
+				height: height,
 				child: Container(
 					padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
 					decoration: BoxDecoration(
@@ -54,8 +57,8 @@ class RecipeCard extends StatelessWidget {
 							const SizedBox(height: 6),
 							if (category != null)
 								Text(category!,
-										style:
-												TextStyle(fontSize: 11, color: AppColors.textMuted)),
+												style:
+																TextStyle(fontSize: 11, color: AppColors.textMuted)),
 							if (category != null) const SizedBox(height: 2),
 							Text(
 								title,
@@ -79,22 +82,22 @@ class RecipeCard extends StatelessWidget {
 									);
 								}).toList(),
 							),
-							const Spacer(),
+							const SizedBox(height: 8),
 							Row(
 								children: [
 									Icon(Icons.access_time,
-											size: 12, color: AppColors.textMuted),
+													size: 12, color: AppColors.textMuted),
 									const SizedBox(width: 4),
 									Text(time,
-											style: TextStyle(
-													fontSize: 10, color: AppColors.textMuted)),
+													style: TextStyle(
+																	fontSize: 10, color: AppColors.textMuted)),
 									const SizedBox(width: 12),
 									Icon(Icons.list_alt,
-											size: 12, color: AppColors.textMuted),
+													size: 12, color: AppColors.textMuted),
 									const SizedBox(width: 4),
 									Text('$count',
-											style: TextStyle(
-													fontSize: 10, color: AppColors.textMuted)),
+													style: TextStyle(
+																fontSize: 10, color: AppColors.black)),
 								],
 							)
 						],
@@ -180,7 +183,11 @@ class RecipeCard extends StatelessWidget {
 						children: [
 							Text(
 								count.toString(),
-								style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+								style: TextStyle(
+									fontWeight: FontWeight.w700,
+									fontSize: 12,
+									color: AppColors.black,
+								),
 							),
 							const SizedBox(width: 6),
 							Text(

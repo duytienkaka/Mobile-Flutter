@@ -45,6 +45,26 @@ public class GeminiService
         return result.DetailedSteps.Count > 0 ? result.DetailedSteps : result.SummarySteps;
     }
 
+    public async Task<List<GeminiRecipe>> GenerateRecipesByNamesAsync(
+        List<string> recipeNames,
+        List<GeminiIngredient> pantryIngredients,
+        CancellationToken ct)
+    {
+        var cleanedNames = recipeNames
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (cleanedNames.Count == 0)
+        {
+            return new List<GeminiRecipe>();
+        }
+
+        var prompt = BuildRecipeDetailsPrompt(cleanedNames, pantryIngredients);
+        return await ExecutePromptAsync(prompt, ct);
+    }
+
     public async Task<GeminiInstructionDetailPayload> GenerateInstructionDetailsAsync(
         string recipeName,
         List<string> ingredients,
@@ -392,6 +412,42 @@ Rules:
 
 Recipe name: {{safeName}}
 Ingredients: {{ingredientsJson}}
+""";
+    }
+
+    private static string BuildRecipeDetailsPrompt(
+        List<string> recipeNames,
+        List<GeminiIngredient> pantryIngredients)
+    {
+        var namesJson = JsonSerializer.Serialize(recipeNames);
+        var pantryJson = JsonSerializer.Serialize(pantryIngredients);
+
+        return $$"""
+You are a helpful cooking assistant for a Vietnamese food app.
+Return ONLY valid JSON in this exact schema:
+{
+    "recipes": [
+        {
+            "name": "",
+            "timeMinutes": 0,
+            "imageUrl": "",
+            "ingredients": [
+                { "name": "", "quantity": 1, "unit": "" }
+            ]
+        }
+    ]
+}
+
+Rules:
+- Generate exactly one item for each requested recipe name.
+- Keep the recipe name exactly as requested.
+- Write in Vietnamese with proper diacritics.
+- ingredients must be realistic and enough for 1 serving.
+- Use pantry ingredients when relevant, but you can include missing ingredients if needed.
+- timeMinutes must be an integer between 10 and 120.
+
+Requested recipe names: {{namesJson}}
+Pantry ingredients: {{pantryJson}}
 """;
     }
 

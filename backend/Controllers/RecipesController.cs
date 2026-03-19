@@ -153,7 +153,9 @@ public class RecipesController : ControllerBase
                     }
                 }
 
-                var available = candidates.Sum(x => x.Quantity);
+                var available = requiredUnit.Length > 0
+                    ? candidates.Sum(x => ConvertQuantityOrZero(x.Quantity, x.Unit, requiredUnit))
+                    : candidates.Sum(x => x.Quantity);
                 if (available < required.Quantity)
                 {
                     return BadRequest(new
@@ -167,9 +169,28 @@ public class RecipesController : ControllerBase
                 {
                     if (remaining <= 0) break;
 
-                    var used = Math.Min(item.Quantity, remaining);
-                    item.Quantity -= used;
-                    remaining -= used;
+                    if (requiredUnit.Length == 0)
+                    {
+                        var used = Math.Min(item.Quantity, remaining);
+                        item.Quantity -= used;
+                        remaining -= used;
+                        continue;
+                    }
+
+                    var availableInRequiredUnit = ConvertQuantityOrZero(item.Quantity, item.Unit, requiredUnit);
+                    if (availableInRequiredUnit <= 0)
+                    {
+                        continue;
+                    }
+
+                    var usedInRequiredUnit = Math.Min(availableInRequiredUnit, remaining);
+                    if (!TryConvertQuantity(usedInRequiredUnit, requiredUnit, item.Unit, out var usedInItemUnit))
+                    {
+                        continue;
+                    }
+
+                    item.Quantity -= usedInItemUnit;
+                    remaining -= usedInRequiredUnit;
                 }
             }
 
@@ -281,5 +302,75 @@ public class RecipesController : ControllerBase
             .Replace('đ', 'd')
             .Replace('Đ', 'D')
             .ToLowerInvariant();
+    }
+
+    private static double ConvertQuantityOrZero(double quantity, string fromUnit, string toUnit)
+    {
+        if (TryConvertQuantity(quantity, fromUnit, toUnit, out var converted))
+        {
+            return converted;
+        }
+        return 0;
+    }
+
+    private static bool TryConvertQuantity(
+        double quantity,
+        string fromUnit,
+        string toUnit,
+        out double converted)
+    {
+        converted = 0;
+        var from = NormalizeUnit(fromUnit);
+        var to = NormalizeUnit(toUnit);
+
+        if (from == to)
+        {
+            converted = quantity;
+            return true;
+        }
+
+        if (TryGetWeightFactor(from, out var fromWeight) && TryGetWeightFactor(to, out var toWeight))
+        {
+            converted = quantity * fromWeight / toWeight;
+            return true;
+        }
+
+        if (TryGetVolumeFactor(from, out var fromVolume) && TryGetVolumeFactor(to, out var toVolume))
+        {
+            converted = quantity * fromVolume / toVolume;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeUnit(string unit)
+    {
+        return (unit ?? string.Empty).Trim().ToLowerInvariant();
+    }
+
+    private static bool TryGetWeightFactor(string unit, out double factorInGrams)
+    {
+        factorInGrams = unit switch
+        {
+            "kg" or "kilogram" or "kilograms" => 1000,
+            "g" or "gr" or "gram" or "grams" => 1,
+            "mg" => 0.001,
+            _ => 0,
+        };
+
+        return factorInGrams > 0;
+    }
+
+    private static bool TryGetVolumeFactor(string unit, out double factorInMl)
+    {
+        factorInMl = unit switch
+        {
+            "l" or "lit" or "liter" or "litre" => 1000,
+            "ml" => 1,
+            _ => 0,
+        };
+
+        return factorInMl > 0;
     }
 }

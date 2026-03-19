@@ -10,13 +10,17 @@ namespace backend.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "Category",
-                table: "Ingredients",
-                type: "character varying(30)",
-                maxLength: 30,
-                nullable: false,
-                defaultValue: "");
+            // Add Category column only if it does not already exist (idempotent)
+            migrationBuilder.Sql(@"DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'Ingredients' AND column_name = 'Category'
+    ) THEN
+        ALTER TABLE ""Ingredients"" ADD COLUMN ""Category"" character varying(30) NOT NULL DEFAULT '';
+    END IF;
+END
+$$;", true);
         }
 
         /// <inheritdoc />
