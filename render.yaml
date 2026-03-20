@@ -36,7 +36,7 @@ services:
       - key: Gemini__ApiKey
         sync: false
       - key: Smtp__Host
-        sync: false
+        value: smtp-relay.brevo.com
       - key: Smtp__Port
         value: "587"
       - key: Smtp__Username
@@ -47,3 +47,7 @@ services:
         sync: false
       - key: Smtp__FromName
         value: Fridge Manager
+      - key: Smtp__SecureSocketOptions
+        value: StartTls
+      - key: Smtp__RequireAuthentication
+        value: "true"
