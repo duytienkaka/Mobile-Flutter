@@ -7,7 +7,7 @@
   var btn = document.getElementById("downloadApkBtn");
   if (!btn) return;
 
-  var apkPath = "/downloads/mobile-flutter.apk";
+  var apkPath = "/downloads/app-release.apk";
   var apkUrl = window.location.origin + apkPath;
   var qrNode = document.getElementById("apkQrImage");
   var apkUrlTextNode = document.getElementById("apkUrlText");
