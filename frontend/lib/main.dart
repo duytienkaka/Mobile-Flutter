@@ -10,10 +10,17 @@ import 'features/auth/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   await ThemeController.instance.load();
   await LocaleController.instance.load();
-  await PushService.instance.initialize();
+
+  try {
+    await Firebase.initializeApp();
+    await PushService.instance.initialize();
+  } catch (e, stackTrace) {
+    debugPrint('Startup warning: Firebase/Push init failed: $e');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
   runApp(const MyApp());
 }
 
