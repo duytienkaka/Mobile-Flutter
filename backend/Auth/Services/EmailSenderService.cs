@@ -20,10 +20,10 @@ public class EmailSenderService
 
     public async Task SendOtpEmailAsync(string toEmail, string otpCode)
     {
-        var brevoApiKey = _configuration["Brevo:ApiKey"];
-        if (!string.IsNullOrWhiteSpace(brevoApiKey))
+        var sendGridApiKey = _configuration["SendGrid:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(sendGridApiKey))
         {
-            await SendViaBrevoApiAsync(toEmail, otpCode, brevoApiKey);
+            await SendViaSendGridApiAsync(toEmail, otpCode, sendGridApiKey);
             return;
         }
 
@@ -69,7 +69,7 @@ public class EmailSenderService
         await smtp.DisconnectAsync(true);
     }
 
-    private async Task SendViaBrevoApiAsync(string toEmail, string otpCode, string apiKey)
+    private async Task SendViaSendGridApiAsync(string toEmail, string otpCode, string apiKey)
     {
         var fromEmail = _configuration["Smtp:FromEmail"];
         var fromName = _configuration["Smtp:FromName"] ?? "Fridge Manager";
@@ -77,29 +77,42 @@ public class EmailSenderService
         if (string.IsNullOrWhiteSpace(fromEmail))
         {
             throw new InvalidOperationException(
-                "Brevo is configured but sender is missing. Set Smtp:FromEmail (verified sender on Brevo)."
+                "SendGrid is configured but sender is missing. Set Smtp:FromEmail (verified sender on SendGrid)."
             );
         }
 
         var payload = new
         {
-            sender = new { name = fromName, email = fromEmail },
-            to = new[] { new { email = toEmail } },
+            personalizations = new[]
+            {
+                new
+                {
+                    to = new[] { new { email = toEmail } }
+                }
+            },
+            from = new { email = fromEmail, name = fromName },
             subject = "Ma xac thuc dang ky Fridge Manager",
-            textContent =
-                "Xin chao,\n\n" +
-                $"Ma OTP dang ky cua ban la: {otpCode}\n" +
-                "Ma co hieu luc trong 5 phut.\n\n" +
-                "Neu ban khong thuc hien thao tac nay, vui long bo qua email nay."
+            content = new[]
+            {
+                new
+                {
+                    type = "text/plain",
+                    value =
+                        "Xin chao,\n\n" +
+                        $"Ma OTP dang ky cua ban la: {otpCode}\n" +
+                        "Ma co hieu luc trong 5 phut.\n\n" +
+                        "Neu ban khong thuc hien thao tac nay, vui long bo qua email nay."
+                }
+            }
         };
 
         var requestJson = JsonSerializer.Serialize(payload);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email")
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.sendgrid.com/v3/mail/send")
         {
             Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
         };
 
-        request.Headers.TryAddWithoutValidation("api-key", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
 
         using var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(20);
@@ -109,7 +122,7 @@ public class EmailSenderService
         {
             var responseBody = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
-                $"Brevo API send failed ({(int)response.StatusCode}): {responseBody}"
+                $"SendGrid API send failed ({(int)response.StatusCode}): {responseBody}"
             );
         }
     }
