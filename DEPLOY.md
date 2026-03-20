@@ -26,10 +26,10 @@ If hosting with Docker, mount Firebase JSON and set:
 
 ## 3) Quick deploy with Docker (VPS/Linux)
 
-Run from `backend/`:
+Run from repository root:
 
 ```bash
-docker build -t mobile-flutter-backend .
+docker build -f backend/Dockerfile -t mobile-flutter-backend .
 
 docker run -d \
   --name mobile-flutter-backend \
