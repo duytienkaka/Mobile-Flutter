@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'otp_screen.dart';
+import 'email_otp_screen.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/top_snackbar.dart';
@@ -236,7 +237,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           }
 
                                           if (isEmail) {
-                                            await AuthService.registerEmail(name, email, pass);
+                                            await AuthService.sendOtpForRegisterEmail(email);
+                                            if (!mounted) return;
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => EmailOtpScreen(
+                                                  fullName: name,
+                                                  email: email,
+                                                  password: pass,
+                                                ),
+                                              ),
+                                            );
                                           } else {
                                             await AuthService.sendOtpForRegister(phone);
                                             if (!mounted) return;

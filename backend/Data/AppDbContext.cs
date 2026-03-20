@@ -81,7 +81,7 @@ public class AppDbContext : DbContext
 
         e.Property(x => x.PhoneNumber)
             .IsRequired()
-            .HasMaxLength(20);
+            .HasMaxLength(120);
 
         e.Property(x => x.Code)
             .IsRequired()

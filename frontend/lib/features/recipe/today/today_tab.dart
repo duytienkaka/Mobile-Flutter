@@ -4,6 +4,7 @@ import '../../../core/l10n/app_localizations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/widgets/recipe_card.dart';
+import '../planner/planner_service.dart';
 import 'today_confirm_screen.dart';
 import 'today_service.dart';
 import 'today_widgets.dart';
@@ -17,20 +18,25 @@ class TodayTab extends StatefulWidget {
 
 class _TodayTabState extends State<TodayTab> {
   final TodayService _service = TodayService.instance;
+  final PlannerService _plannerService = PlannerService.instance;
   int _selectedTab = 0;
+  String? _lastShownTabError;
 
   @override
   void initState() {
     super.initState();
     _service.addListener(_onChanged);
+    _plannerService.addListener(_onChanged);
     // Tự động load cả hai tab khi app khởi động
     _service.loadTab(TodayTabType.full);
     _service.loadTab(TodayTabType.near);
+    _plannerService.loadWeek(_plannerService.weekStartFor(DateTime.now()));
   }
 
   @override
   void dispose() {
     _service.removeListener(_onChanged);
+    _plannerService.removeListener(_onChanged);
     super.dispose();
   }
 
@@ -45,22 +51,31 @@ class _TodayTabState extends State<TodayTab> {
         : TodayTabType.near;
     final isNutritionTab = tabType == TodayTabType.near;
     final isRefreshingCurrentTab = _service.isLoadingFor(tabType);
-    final recipes = tabType == TodayTabType.full
+    final tabRecipes = tabType == TodayTabType.full
         ? _service.fullRecipes
         : _service.nearRecipes;
+    final plannerRecipes = _plannerRecipesForToday();
+    final usePlannerFallback =
+        tabType == TodayTabType.full && tabRecipes.isEmpty && plannerRecipes.isNotEmpty;
+    final recipes = usePlannerFallback ? plannerRecipes : tabRecipes;
     final selectedIndex = _service.selectedIndex(tabType);
-    final hasRecipe = selectedIndex >= 0;
-    final showLoading = _service.isLoadingFor(tabType) && recipes.isEmpty;
+    final hasRecipe = usePlannerFallback ? recipes.isNotEmpty : selectedIndex >= 0;
+    final showLoading = _service.isLoadingFor(tabType) && tabRecipes.isEmpty;
     final tabError = _service.errorFor(tabType);
+    final hasRealError = tabError != null && tabError.isNotEmpty;
 
-    if (tabError != null && tabError.isNotEmpty) {
+    if (hasRealError && tabError != _lastShownTabError) {
+      final errorMessage = tabError;
+      _lastShownTabError = errorMessage;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showTopSnackBar(
           context,
-          tabError.replaceFirst('Exception: ', ''),
+          errorMessage.replaceFirst('Exception: ', ''),
           isError: true,
         );
       });
+    } else if (!hasRealError) {
+      _lastShownTabError = null;
     }
     return Column(
       children: [
@@ -111,7 +126,24 @@ class _TodayTabState extends State<TodayTab> {
                       ? const Center(child: CircularProgressIndicator())
                       : recipes.isEmpty
                           ? Center(
-                              child: tabType == TodayTabType.full
+                              child: hasRealError
+                                  ? Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: AppColors.textMuted,
+                                          size: 30,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          context.tr('Có lỗi xảy ra khi tải gợi ý. Vui lòng thử lại.'),
+                                          style: AppTextStyles.caption,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    )
+                                  : tabType == TodayTabType.full
                                   ? Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
@@ -122,7 +154,7 @@ class _TodayTabState extends State<TodayTab> {
                                         ),
                                         const SizedBox(height: 10),
                                         Text(
-                                          context.tr('Số lượng thực phẩm Không đủ để đưa ra gợi ý!'),
+                                          context.tr('Hôm nay chưa có gợi ý từ pantry. Hãy thêm nguyên liệu hoặc tạo kế hoạch bữa ăn.'),
                                           style: AppTextStyles.caption,
                                           textAlign: TextAlign.center,
                                         ),
@@ -214,6 +246,13 @@ class _TodayTabState extends State<TodayTab> {
                   ),
                 ],
               ),
+              if (usePlannerFallback) ...[
+                const SizedBox(height: 12),
+                Text(
+                  context.tr('Đang hiển thị 3 món từ kế hoạch hôm nay'),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.textMuted),
+                ),
+              ],
             ],
           ),
         ),
@@ -222,7 +261,11 @@ class _TodayTabState extends State<TodayTab> {
   }
 
   Future<void> _handleCook(TodayTabType tab) async {
-    final recipe = _service.selectedRecipe(tab) ?? _buildFallbackRecipe();
+    final selected = _service.selectedRecipe(tab);
+    final plannerRecipes =
+        tab == TodayTabType.full ? _plannerRecipesForToday() : const <TodayRecipe>[];
+    final recipe = selected ??
+        (plannerRecipes.isNotEmpty ? plannerRecipes.first : _buildFallbackRecipe());
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -296,5 +339,24 @@ class _TodayTabState extends State<TodayTab> {
     final scale = textScale.clamp(1.0, 1.6);
     final reduced = 240 - ((scale - 1.0) * 28);
     return reduced.clamp(214, 240).toDouble();
+  }
+
+  List<TodayRecipe> _plannerRecipesForToday() {
+    final entries = _plannerService.entriesForDate(DateTime.now());
+    final recipes = entries
+        .map(
+          (entry) => TodayRecipe(
+            name: entry.recipeName,
+            timeMinutes: 30,
+            imageUrl:
+                'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+            ingredients: const [],
+            missingIngredients: const [],
+          ),
+        )
+        .where((recipe) => recipe.name.trim().isNotEmpty)
+        .toList();
+    if (recipes.length <= 3) return recipes;
+    return recipes.take(3).toList();
   }
 }

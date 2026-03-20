@@ -6,6 +6,7 @@ import '../../core/widgets/top_snackbar.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/l10n/l10n_keys.dart';
 import '../../home/home_screen.dart';
+import 'login_screen.dart';
 import 'dart:async';
 
 class OtpScreen extends StatefulWidget {
@@ -147,11 +148,25 @@ class _OtpScreenState extends State<OtpScreen> {
                                 }
 
                                 if (!mounted) return;
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (_) => const HomeScreen(),
-                                  ),
-                                );
+                                if (widget.isRegister) {
+                                  showTopSnackBar(
+                                    context,
+                                    context.tr('Đăng ký thành công. Vui lòng đăng nhập.'),
+                                  );
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                } else {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const HomeScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
                               } catch (e) {
                                 if (!mounted) return;
                                 final text =

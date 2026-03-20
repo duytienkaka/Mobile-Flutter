@@ -120,7 +120,7 @@ class IngredientCard extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
-                      color: AppColors.surface,
+                      color: Colors.white,
                     ),
                   ),
                 ),
