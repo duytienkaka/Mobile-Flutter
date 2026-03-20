@@ -45,6 +45,7 @@ public class PushNotificationService
         _credentialsJson = configuredJson ?? string.Empty;
     }
 
+    [Obsolete]
     private void EnsureInitialized()
     {
         if (_initialized) return;
