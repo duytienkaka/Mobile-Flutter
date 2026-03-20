@@ -35,7 +35,7 @@ services:
         sync: false
       - key: Gemini__ApiKey
         sync: false
-      - key: Brevo__ApiKey
+      - key: SendGrid__ApiKey
         sync: false
       - key: Smtp__Host
         value: smtp-relay.brevo.com
