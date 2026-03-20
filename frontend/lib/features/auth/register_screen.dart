@@ -313,7 +313,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  bool _isValidPhone(String phone) => RegExp(r'^0\\d{9}$').hasMatch(phone);
+  bool _isValidPhone(String phone) => RegExp(r'^0\d{9}$').hasMatch(phone);
 
   String _mapRegisterError(String raw) {
     final text = raw.replaceAll('Exception: ', '').trim().toLowerCase();

@@ -36,6 +36,11 @@ class AuthService {
       return 'Bạn thao tác quá nhanh. Vui lòng thử lại sau.';
     }
 
+    if (lower.contains('smtp is not configured') ||
+        (lower.contains('smtp') && lower.contains('not configured'))) {
+      return 'Server chưa cấu hình SMTP để gửi OTP email. Vui lòng cấu hình Smtp__Host, Smtp__Port, Smtp__Username, Smtp__Password, Smtp__FromEmail.';
+    }
+
     return fallback.isNotEmpty ? fallback : message;
   }
 
