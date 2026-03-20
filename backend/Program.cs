@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using System.Text;
 
 public partial class Program
@@ -25,9 +26,14 @@ public partial class Program
 
         builder.Services.AddControllers();
 
+        var rawConnectionString =
+            builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? Environment.GetEnvironmentVariable("DATABASE_URL");
+        var normalizedConnectionString = NormalizePostgresConnectionString(rawConnectionString);
+
         builder.Services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+            options.UseNpgsql(normalizedConnectionString);
         });
 
         builder.Services.AddScoped<AuthService>();
@@ -136,5 +142,38 @@ ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""UtcOffsetMinutes"" integer;";
 
             app.Run();
         }
+    }
+
+    private static string NormalizePostgresConnectionString(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new InvalidOperationException(
+                "Database connection string is missing. Set ConnectionStrings__DefaultConnection or DATABASE_URL.");
+        }
+
+        // Render and many PaaS providers expose DB URL in URI format:
+        // postgres://user:pass@host:port/database
+        if (raw.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            var uri = new Uri(raw);
+            var userInfo = uri.UserInfo.Split(':', 2);
+
+            var builder = new NpgsqlConnectionStringBuilder
+            {
+                Host = uri.Host,
+                Port = uri.Port > 0 ? uri.Port : 5432,
+                Database = uri.AbsolutePath.Trim('/'),
+                Username = Uri.UnescapeDataString(userInfo[0]),
+                Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+                SslMode = SslMode.Require,
+                TrustServerCertificate = true
+            };
+
+            return builder.ConnectionString;
+        }
+
+        return raw;
     }
 }
