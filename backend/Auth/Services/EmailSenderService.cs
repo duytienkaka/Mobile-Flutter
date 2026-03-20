@@ -21,11 +21,13 @@ public class EmailSenderService
         var password = _configuration["Smtp:Password"];
         var fromEmail = _configuration["Smtp:FromEmail"];
         var fromName = _configuration["Smtp:FromName"] ?? "Fridge Manager";
+        var secureSocketOptions = ParseSecureSocketOptions(_configuration["Smtp:SecureSocketOptions"]);
+        var requireAuthentication = ParseBooleanOrDefault(_configuration["Smtp:RequireAuthentication"], true);
 
         if (string.IsNullOrWhiteSpace(host)
             || string.IsNullOrWhiteSpace(fromEmail)
-            || string.IsNullOrWhiteSpace(username)
-            || string.IsNullOrWhiteSpace(password))
+            || (requireAuthentication && string.IsNullOrWhiteSpace(username))
+            || (requireAuthentication && string.IsNullOrWhiteSpace(password)))
         {
             throw new InvalidOperationException(
                 "SMTP is not configured. Set Smtp:Host, Smtp:Port, Smtp:Username, Smtp:Password, and Smtp:FromEmail.");
@@ -46,9 +48,34 @@ public class EmailSenderService
         };
 
         using var smtp = new SmtpClient();
-        await smtp.ConnectAsync(host, port, SecureSocketOptions.StartTls);
-        await smtp.AuthenticateAsync(username, password);
+        await smtp.ConnectAsync(host, port, secureSocketOptions);
+        if (requireAuthentication)
+        {
+            await smtp.AuthenticateAsync(username, password);
+        }
         await smtp.SendAsync(message);
         await smtp.DisconnectAsync(true);
+    }
+
+    private static SecureSocketOptions ParseSecureSocketOptions(string? value)
+    {
+        // Keep StartTls as default for production safety while allowing local SMTP testing.
+        if (string.IsNullOrWhiteSpace(value))
+            return SecureSocketOptions.StartTls;
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "none" => SecureSocketOptions.None,
+            "ssl" or "sslonconnect" => SecureSocketOptions.SslOnConnect,
+            "starttls" => SecureSocketOptions.StartTls,
+            "starttlswhenavailable" => SecureSocketOptions.StartTlsWhenAvailable,
+            "auto" => SecureSocketOptions.Auto,
+            _ => SecureSocketOptions.StartTls
+        };
+    }
+
+    private static bool ParseBooleanOrDefault(string? value, bool defaultValue)
+    {
+        return bool.TryParse(value, out var parsed) ? parsed : defaultValue;
     }
 }
