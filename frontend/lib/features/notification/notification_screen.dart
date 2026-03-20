@@ -29,6 +29,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<NotificationItem>? _notifications;
   int _unreadCount = 0;
   bool _isMarkingAllRead = false;
+  bool _isClearingAll = false;
   _NotificationFilter _selectedFilter = _NotificationFilter.all;
 
   @override
@@ -217,6 +218,44 @@ class _NotificationScreenState extends State<NotificationScreen> {
       }
     } finally {
       if (mounted) setState(() => _isMarkingAllRead = false);
+    }
+  }
+
+  Future<void> _clearAllNotifications() async {
+    final list = _notifications;
+    if (list == null || list.isEmpty || _isClearingAll) return;
+
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: context.tr('Xóa tất cả thông báo'),
+      message: context.tr('Bạn có chắc muốn xóa toàn bộ thông báo?'),
+      cancelText: context.tr('Hủy'),
+      confirmText: context.tr('Xóa tất cả'),
+      isDanger: true,
+      icon: Icons.delete_sweep_outlined,
+    );
+
+    if (!confirmed) return;
+
+    setState(() => _isClearingAll = true);
+    try {
+      await NotificationService.clearAllNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notifications = [];
+        _unreadCount = 0;
+      });
+      NotificationBadgeService.instance.setUnreadCount(0);
+      showTopSnackBar(context, context.tr('Đã xóa tất cả thông báo'));
+    } catch (e) {
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        '${context.tr('Xóa thông báo thất bại')}: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isClearingAll = false);
     }
   }
 
@@ -629,6 +668,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             FutureBuilder<List<NotificationItem>>(
               future: _notificationsFuture,
               builder: (context, snapshot) {
+                final all = _notifications ?? snapshot.data ?? <NotificationItem>[];
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Container(
@@ -668,12 +708,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                context.tr('Kéo xuống để làm mới dữ liệu'),
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -681,13 +715,56 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           onPressed: _isMarkingAllRead || _unreadCount == 0
                               ? null
                               : _markAllAsRead,
+                          style: TextButton.styleFrom(
+                            backgroundColor: _isMarkingAllRead || _unreadCount == 0
+                                ? AppColors.surfaceSoft
+                                : AppColors.primary,
+                            foregroundColor: _isMarkingAllRead || _unreadCount == 0
+                                ? AppColors.textMuted
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
                           child: _isMarkingAllRead
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
                                 )
                               : Text(context.tr('Đọc hết')),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: _isClearingAll || all.isEmpty
+                              ? null
+                              : _clearAllNotifications,
+                          style: TextButton.styleFrom(
+                            backgroundColor: _isClearingAll || all.isEmpty
+                                ? AppColors.surfaceSoft
+                                : AppColors.danger,
+                            foregroundColor: _isClearingAll || all.isEmpty
+                                ? AppColors.textMuted
+                                : Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: _isClearingAll
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Text(context.tr('Xóa hết')),
                         ),
                       ],
                     ),

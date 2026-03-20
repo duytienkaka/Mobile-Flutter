@@ -2,6 +2,7 @@ using Backend.Auth.Services;
 using Backend.Data;
 using Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -12,11 +13,17 @@ public partial class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.WebHost.UseUrls("http://0.0.0.0:5075", "http://localhost:5075");
+        var port = Environment.GetEnvironmentVariable("PORT");
+        if (!string.IsNullOrWhiteSpace(port))
+        {
+            builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+        }
+        else
+        {
+            builder.WebHost.UseUrls("http://0.0.0.0:5075", "http://localhost:5075");
+        }
 
         builder.Services.AddControllers();
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
 
         builder.Services.AddDbContext<AppDbContext>(options =>
         {
@@ -31,17 +38,35 @@ public partial class Program
         builder.Services.AddScoped<WeeklyMealPlanService>();
         builder.Services.AddScoped<HomeAiService>();
         builder.Services.AddScoped<NotificationService>();
+        builder.Services.AddSingleton<PushNotificationService>();
         builder.Services.AddHostedService<ExpiredIngredientsCheckerService>();
 
-        // Allow the Flutter web app (any localhost port) to call the API during dev
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()
+            ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .ToArray();
+
+        // In production, use explicit allowed origins from config.
+        // In development, allow any origin for quick local iteration.
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("DevCors", policy =>
+            options.AddPolicy("AppCors", policy =>
             {
-                policy
-                    .AllowAnyOrigin()
-                    .AllowAnyHeader()
-                    .AllowAnyMethod();
+                if (allowedOrigins is { Length: > 0 })
+                {
+                    policy
+                        .WithOrigins(allowedOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                }
+                else if (builder.Environment.IsDevelopment())
+                {
+                    policy
+                        .AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                }
             });
         });
 
@@ -68,20 +93,18 @@ public partial class Program
         var app = builder.Build();
 
         // CORS should run before auth so preflight passes
-        app.UseCors("DevCors");
+        app.UseCors("AppCors");
 
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        var contentTypeProvider = new FileExtensionContentTypeProvider();
+        contentTypeProvider.Mappings[".apk"] = "application/vnd.android.package-archive";
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            ContentTypeProvider = contentTypeProvider
+        });
 
         app.UseAuthentication();
         app.UseAuthorization();
-
-        // Swagger only in Development
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
 
         app.MapControllers();
 
@@ -89,6 +112,8 @@ public partial class Program
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Database.Migrate();
+
             // Ensure Notifications table exists (guarded raw SQL) to avoid startup errors
             var ensureNotificationsSql = @"CREATE TABLE IF NOT EXISTS ""Notifications"" (
     ""Id"" uuid NOT NULL,
@@ -103,6 +128,11 @@ public partial class Program
 CREATE INDEX IF NOT EXISTS ""IX_Notifications_UserId"" ON ""Notifications"" (""UserId"");";
 
             db.Database.ExecuteSqlRaw(ensureNotificationsSql);
+
+            var ensureUserPushColumnsSql = @"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""FcmToken"" character varying(512);
+ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""TimeZoneId"" character varying(100);
+ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""UtcOffsetMinutes"" integer;";
+            db.Database.ExecuteSqlRaw(ensureUserPushColumnsSql);
 
             app.Run();
         }

@@ -1,3 +1,16 @@
 # .NET build outputs
 backend/bin/
 backend/obj/
+backend/publish/
+frontend/build/
+
+# local secrets
+backend/appsettings.Local.json
+backend/appsettings.Development.Local.json
+backend/firebase-service-account.json
+backend/*.secrets.json
+*.env
+*.env.local
+*.pfx
+*.jks
+*.keystore

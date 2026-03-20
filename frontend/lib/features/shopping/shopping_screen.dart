@@ -52,6 +52,12 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   Widget build(BuildContext context) {
     final lists = service.lists;
     final hasLists = lists.isNotEmpty;
+    final totalItems = lists.fold<int>(0, (sum, item) => sum + item.itemCount);
+    final completedItems = lists.fold<int>(
+      0,
+      (sum, item) => sum + item.completedCount,
+    );
+    final pendingItems = (totalItems - completedItems).clamp(0, totalItems);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -100,7 +106,15 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
               child: hasLists
                   ? ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                      children: [...lists.map(_buildListTile)],
+                      children: [
+                        _buildOverviewCard(
+                          totalLists: lists.length,
+                          pendingItems: pendingItems,
+                          completedItems: completedItems,
+                        ),
+                        const SizedBox(height: 14),
+                        ...lists.map(_buildListTile),
+                      ],
                     )
                   : EmptyState(
                       title: context.tr('Chưa có danh sách'),
@@ -118,6 +132,70 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
     );
   }
 
+  Widget _buildOverviewCard({
+    required int totalLists,
+    required int pendingItems,
+    required int completedItems,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primarySoft, AppColors.surface],
+        ),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.shopping_bag_outlined,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('Tổng quan tuần này'),
+                  style: AppTextStyles.subtitle,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.tr(
+                    '$totalLists danh sách • $pendingItems cần mua • $completedItems đã mua',
+                  ),
+                  style: AppTextStyles.caption.copyWith(
+                    fontStyle: FontStyle.normal,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openAddListSheet() async {
     await showModalBottomSheet(
       context: context,
@@ -131,6 +209,14 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   Widget _buildListTile(ShoppingListModel list) {
     final dateText = _formatDate(list.planDate);
+    final pending = (list.itemCount - list.completedCount).clamp(
+      0,
+      list.itemCount,
+    );
+    final progress = list.itemCount == 0
+        ? 0.0
+        : list.completedCount / list.itemCount;
+    final isDone = list.itemCount > 0 && list.completedCount == list.itemCount;
     final doneText = context.trKey(
       L10nKeys.shoppingCompletedProgress,
       params: {'completed': list.completedCount, 'total': list.itemCount},
@@ -153,40 +239,122 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: InkWell(
+          borderRadius: BorderRadius.circular(16),
           onTap: () => _openListDetail(list),
-          child: Row(
-            children: [
-              Icon(Icons.event_note, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(list.name, style: AppTextStyles.subtitle),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.trKey(
-                        L10nKeys.shoppingListMeta,
-                        params: {
-                          'date': dateText,
-                          'count': list.itemCount,
-                          'doneText': doneText,
-                        },
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      style: AppTextStyles.caption,
+                      child: Icon(
+                        isDone ? Icons.task_alt : Icons.event_note,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(list.name, style: AppTextStyles.subtitle),
+                          const SizedBox(height: 3),
+                          Text(
+                            context.tr(dateText),
+                            style: AppTextStyles.caption.copyWith(
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDone
+                            ? AppColors.success.withOpacity(0.14)
+                            : AppColors.warning.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        isDone
+                            ? context.tr('Hoàn tất')
+                            : context.tr('Đang mua'),
+                        style: AppTextStyles.caption.copyWith(
+                          fontStyle: FontStyle.normal,
+                          color: isDone ? AppColors.success : AppColors.warning,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              Icon(Icons.chevron_right, color: AppColors.textMuted),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  context.trKey(
+                    L10nKeys.shoppingListMeta,
+                    params: {
+                      'date': dateText,
+                      'count': list.itemCount,
+                      'doneText': doneText,
+                    },
+                  ),
+                  style: AppTextStyles.caption.copyWith(
+                    fontStyle: FontStyle.normal,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    backgroundColor: AppColors.surfaceSoft,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isDone ? AppColors.success : AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      context.tr('$pending còn lại'),
+                      style: AppTextStyles.caption.copyWith(
+                        fontStyle: FontStyle.normal,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.chevron_right, color: AppColors.textMuted),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

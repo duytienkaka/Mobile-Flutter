@@ -1,6 +1,49 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/utils/pantry_scope.dart';
+import '../../shopping/shopping_service.dart';
+import '../../shopping/shopping_list_model.dart';
+
+enum PlannerShoppingMode { daily, weeklyMerged }
+
+class PlannerShoppingGenerationResult {
+	final PlannerShoppingMode mode;
+	final int sourcePlanCount;
+	final int createdListCount;
+	final int createdItemCount;
+	final String? firstCreatedListId;
+
+	const PlannerShoppingGenerationResult({
+		required this.mode,
+		required this.sourcePlanCount,
+		required this.createdListCount,
+		required this.createdItemCount,
+		this.firstCreatedListId,
+	});
+}
+
+class _PlannerDailyIngredients {
+	final DateTime date;
+	final List<_PlannerIngredientRow> ingredients;
+
+	const _PlannerDailyIngredients({
+		required this.date,
+		required this.ingredients,
+	});
+}
+
+class _PlannerIngredientRow {
+	final String name;
+	final double quantity;
+	final String unit;
+
+	const _PlannerIngredientRow({
+		required this.name,
+		required this.quantity,
+		required this.unit,
+	});
+}
 
 enum MealType { breakfast, lunch, dinner, snack }
 
@@ -151,6 +194,157 @@ class PlannerService extends ChangeNotifier {
 		}).toList();
 		filtered.sort((a, b) => a.date.compareTo(b.date));
 		return filtered;
+	}
+
+	Future<PlannerShoppingGenerationResult> generateShoppingListsForWeek({
+		required DateTime weekStart,
+		required PlannerShoppingMode mode,
+		void Function(String message)? onProgress,
+	}) async {
+		onProgress?.call('Đang chuẩn bị dữ liệu...');
+		await PantryScope.ensureInitialized();
+		final today = normalizeDate(DateTime.now());
+		final weekStartDate = normalizeDate(weekStart);
+		final effectiveStart = today.isAfter(weekStartDate) ? today : weekStartDate;
+
+		final weekEntries = entriesForWeek(weekStart)
+			.where((entry) => !normalizeDate(entry.date).isBefore(effectiveStart))
+			.toList();
+		if (weekEntries.isEmpty) {
+			return PlannerShoppingGenerationResult(
+				mode: mode,
+				sourcePlanCount: 0,
+				createdListCount: 0,
+				createdItemCount: 0,
+				firstCreatedListId: null,
+			);
+		}
+
+		final shoppingService = ShoppingService.instance;
+		onProgress?.call('Đang đồng bộ danh sách mua sắm...');
+		await shoppingService.loadLists();
+		final existingLists = List<ShoppingListModel>.from(shoppingService.lists);
+		onProgress?.call('Đang lấy nguyên liệu từ planner...');
+		final dailyIngredients = await _loadWeeklyIngredients(weekStart);
+		final ingredientDays = dailyIngredients
+			.where((day) => !normalizeDate(day.date).isBefore(effectiveStart))
+			.map(
+				(day) => _PlannerDailyIngredients(
+					date: day.date,
+					ingredients: day.ingredients.where(_isShoppingIngredient).toList(),
+				),
+			)
+			.where((day) => day.ingredients.isNotEmpty)
+			.toList();
+		if (ingredientDays.isEmpty) {
+			return PlannerShoppingGenerationResult(
+				mode: mode,
+				sourcePlanCount: weekEntries.length,
+				createdListCount: 0,
+				createdItemCount: 0,
+				firstCreatedListId: null,
+			);
+		}
+
+		if (mode == PlannerShoppingMode.weeklyMerged) {
+			final weekLabel = _formatWeekLabel(weekStartFor(weekStart));
+			final weeklyListName = 'Đi chợ tuần $weekLabel';
+			onProgress?.call('Đang tạo list gộp theo tuần...');
+			await _deleteMatchedLists(
+				shoppingService: shoppingService,
+				lists: existingLists,
+				matcher: (list) => list.name.trim().toLowerCase() == weeklyListName.toLowerCase(),
+			);
+			final list = await shoppingService.createList(
+				name: weeklyListName,
+				planDate: weekStartFor(weekStart),
+			);
+			if (list == null) {
+				return PlannerShoppingGenerationResult(
+					mode: mode,
+					sourcePlanCount: weekEntries.length,
+					createdListCount: 0,
+					createdItemCount: 0,
+					firstCreatedListId: null,
+				);
+			}
+
+			var createdItems = 0;
+			final merged = _mergeIngredients(ingredientDays);
+			createdItems = await shoppingService.addManualItemsBatch(
+				listId: list.id,
+				items: merged.values
+					.map(
+						(item) => {
+							'name': item.name,
+							'quantity': item.quantity,
+							'unit': item.unit,
+						},
+					)
+					.toList(),
+			);
+			onProgress?.call('Đang hoàn tất dữ liệu shopping...');
+			await shoppingService.loadLists();
+			onProgress?.call('Đã xong');
+
+			return PlannerShoppingGenerationResult(
+				mode: mode,
+				sourcePlanCount: weekEntries.length,
+				createdListCount: 1,
+				createdItemCount: createdItems,
+				firstCreatedListId: list.id,
+			);
+		}
+
+		var createdLists = 0;
+		var createdItems = 0;
+		String? firstCreatedListId;
+		final sortedDays = ingredientDays.toList()..sort((a, b) => a.date.compareTo(b.date));
+		var dayIndex = 0;
+		for (final dayPlan in sortedDays) {
+			dayIndex++;
+			final day = normalizeDate(dayPlan.date);
+			final dailyListName = 'Đi chợ ${_formatDate(day)}';
+			onProgress?.call('Đang tạo list ngày $dayIndex/${sortedDays.length}...');
+			await _deleteMatchedLists(
+				shoppingService: shoppingService,
+				lists: existingLists,
+				matcher: (list) => _matchesDailyPlannerListName(list.name, day),
+			);
+			final list = await shoppingService.createList(
+				name: dailyListName,
+				planDate: day,
+			);
+			if (list == null) continue;
+
+			firstCreatedListId ??= list.id;
+			createdLists++;
+			final mergedDailyIngredients = _mergeIngredientRows(dayPlan.ingredients);
+			createdItems += await shoppingService.addManualItemsBatch(
+				listId: list.id,
+				items: mergedDailyIngredients
+					.map(
+						(item) => {
+							'name': item.name,
+							'quantity': item.quantity,
+							'unit': item.unit,
+						},
+					)
+					.toList(),
+			);
+		}
+
+		onProgress?.call('Đang hoàn tất dữ liệu shopping...');
+		await shoppingService.loadLists();
+		onProgress?.call('Đã xong');
+
+		return PlannerShoppingGenerationResult(
+			mode: mode,
+			sourcePlanCount: weekEntries.length,
+			createdListCount: createdLists,
+			createdItemCount: createdItems,
+			firstCreatedListId: firstCreatedListId,
+		);
 	}
 
 	void addEntry(MealPlanEntry entry) {
@@ -347,5 +541,138 @@ class PlannerService extends ChangeNotifier {
 			default:
 				return 'Không thể xử lý yêu cầu.';
 		}
+	}
+
+	Map<String, _PlannerIngredientRow> _mergeIngredients(List<_PlannerDailyIngredients> days) {
+		final merged = <String, _PlannerIngredientRow>{};
+		for (final day in days) {
+			for (final ingredient in _mergeIngredientRows(day.ingredients)) {
+				final key = '${ingredient.name.trim().toLowerCase()}|${ingredient.unit.trim().toLowerCase()}';
+				final existing = merged[key];
+				if (existing == null) {
+					merged[key] = ingredient;
+					continue;
+				}
+				merged[key] = _PlannerIngredientRow(
+					name: existing.name,
+					quantity: existing.quantity + ingredient.quantity,
+					unit: existing.unit,
+				);
+			}
+		}
+		return merged;
+	}
+
+	List<_PlannerIngredientRow> _mergeIngredientRows(List<_PlannerIngredientRow> rows) {
+		final merged = <String, _PlannerIngredientRow>{};
+		for (final row in rows) {
+			final key = '${row.name.trim().toLowerCase()}|${row.unit.trim().toLowerCase()}';
+			final existing = merged[key];
+			if (existing == null) {
+				merged[key] = row;
+				continue;
+			}
+			merged[key] = _PlannerIngredientRow(
+				name: existing.name,
+				quantity: existing.quantity + row.quantity,
+				unit: existing.unit,
+			);
+		}
+		return merged.values.toList()
+			..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+	}
+
+	Future<void> _deleteMatchedLists({
+		required ShoppingService shoppingService,
+		required List<ShoppingListModel> lists,
+		required bool Function(ShoppingListModel list) matcher,
+	}) async {
+		for (final list in lists.where(matcher)) {
+			await shoppingService.deleteList(list.id);
+		}
+	}
+
+	bool _matchesDailyPlannerListName(String listName, DateTime day) {
+		final normalized = listName.trim().toLowerCase();
+		final full = 'đi chợ ${_formatDate(day)}'.toLowerCase();
+		final legacy = 'đi chợ ${_formatLegacyDate(day)}'.toLowerCase();
+		return normalized == full || normalized == legacy;
+	}
+
+	bool _isShoppingIngredient(_PlannerIngredientRow ingredient) {
+		return PantryScope.isPantryManagedIngredient(ingredient.name);
+	}
+
+	Future<List<_PlannerDailyIngredients>> _loadWeeklyIngredients(DateTime weekStart) async {
+		final normalizedWeekStart = normalizeDate(weekStart);
+		final res = await ApiClient.get(
+			'/planner/weekly/ingredients',
+			auth: true,
+			queryParameters: {'weekStart': normalizedWeekStart.toIso8601String()},
+		);
+		if (res.statusCode != 200) {
+			throw Exception(_extractError(res));
+		}
+
+		final data = jsonDecode(res.body);
+		if (data is! Map<String, dynamic>) {
+			return const [];
+		}
+
+		final daysRaw = data['days'];
+		if (daysRaw is! List) return const [];
+
+		final result = <_PlannerDailyIngredients>[];
+		for (final day in daysRaw) {
+			if (day is! Map<String, dynamic>) continue;
+			final date = DateTime.tryParse((day['date'] ?? '').toString());
+			if (date == null) continue;
+
+			final ingredientsRaw = day['ingredients'];
+			final ingredients = <_PlannerIngredientRow>[];
+			if (ingredientsRaw is List) {
+				for (final ing in ingredientsRaw) {
+					if (ing is! Map<String, dynamic>) continue;
+					final name = (ing['name'] ?? '').toString().trim();
+					if (name.isEmpty) continue;
+					final quantity = ing['quantity'] is num
+						? (ing['quantity'] as num).toDouble()
+						: double.tryParse((ing['quantity'] ?? '').toString()) ?? 1;
+					final unit = (ing['unit'] ?? '').toString().trim();
+					ingredients.add(
+						_PlannerIngredientRow(
+							name: name,
+							quantity: quantity <= 0 ? 1 : quantity,
+							unit: unit,
+						),
+					);
+				}
+			}
+
+			result.add(
+				_PlannerDailyIngredients(
+					date: normalizeDate(date.toLocal()),
+					ingredients: ingredients,
+				),
+			);
+		}
+
+		return result;
+	}
+
+	String _formatDate(DateTime date) {
+		final normalized = normalizeDate(date);
+		return '${normalized.day.toString().padLeft(2, '0')}/${normalized.month.toString().padLeft(2, '0')}/${normalized.year}';
+	}
+
+	String _formatLegacyDate(DateTime date) {
+		final normalized = normalizeDate(date);
+		return '${normalized.day.toString().padLeft(2, '0')}/${normalized.month.toString().padLeft(2, '0')}';
+	}
+
+	String _formatWeekLabel(DateTime weekStart) {
+		final start = normalizeDate(weekStart);
+		final end = start.add(const Duration(days: 6));
+		return '${_formatDate(start)}-${_formatDate(end)}';
 	}
 }

@@ -150,6 +150,59 @@ public class ShoppingController : ControllerBase
         return CreatedAtAction(nameof(GetList), new { id = list.Id }, MapItem(item));
     }
 
+    [HttpPost("lists/{id:guid}/items/batch")]
+    public async Task<ActionResult<ShoppingItemsBatchCreateResponse>> CreateItemsInListBatch(
+        Guid id,
+        ShoppingItemsBatchCreateRequest request)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var list = await _db.ShoppingLists
+            .FirstOrDefaultAsync(l => l.Id == id && l.UserId == userId);
+
+        if (list == null) return NotFound();
+
+        var incoming = request.Items ?? new List<ShoppingItemCreateRequest>();
+        if (incoming.Count == 0)
+        {
+            return Ok(new ShoppingItemsBatchCreateResponse { CreatedCount = 0 });
+        }
+
+        var aggregated = incoming
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(
+                x => $"{x.Name.Trim().ToLowerInvariant()}|{(x.Unit ?? string.Empty).Trim().ToLowerInvariant()}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var first = group.First();
+                var quantity = group.Sum(item => item.Quantity <= 0 ? 1 : item.Quantity);
+                return new ShoppingItem
+                {
+                    ShoppingListId = list.Id,
+                    Name = first.Name.Trim(),
+                    Quantity = quantity,
+                    Unit = (first.Unit ?? string.Empty).Trim(),
+                    IsChecked = false
+                };
+            })
+            .ToList();
+
+        if (aggregated.Count == 0)
+        {
+            return Ok(new ShoppingItemsBatchCreateResponse { CreatedCount = 0 });
+        }
+
+        _db.ShoppingItems.AddRange(aggregated);
+        await _db.SaveChangesAsync();
+
+        return Ok(new ShoppingItemsBatchCreateResponse
+        {
+            CreatedCount = aggregated.Count
+        });
+    }
+
     [HttpPost("items")]
     public async Task<ActionResult<ShoppingItemResponse>> CreateItem(ShoppingItemCreateRequest request)
     {

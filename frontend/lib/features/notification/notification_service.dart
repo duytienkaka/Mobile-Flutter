@@ -11,7 +11,7 @@ class NotificationItem {
   final String body;
   final bool isRead;
   final DateTime createdAt;
-  final String group; // expired, added, ...
+  final String group;
 
   NotificationItem({
     required this.id,
@@ -95,6 +95,19 @@ class NotificationService {
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception(_extractError(res));
     }
+  }
+
+  static Future<int> clearAllNotifications() async {
+    final res = await ApiClient.delete('/api/notifications', auth: true);
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception(_extractError(res));
+    }
+    if (res.body.isEmpty) return 0;
+    final data = jsonDecode(res.body);
+    if (data is Map && data['deletedCount'] is num) {
+      return (data['deletedCount'] as num).toInt();
+    }
+    return 0;
   }
 
   static Future<int> unreadCount() async {

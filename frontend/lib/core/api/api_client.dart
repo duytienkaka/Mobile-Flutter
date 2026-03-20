@@ -3,8 +3,11 @@ import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 
 class ApiClient {
+  static const String _defaultApiBaseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:5075');
+
   static String get baseUrl {
-    return 'http://192.168.27.34:5075';
+    return _defaultApiBaseUrl;
   }
 
   static Future<Map<String, String>> _headers({bool auth = false}) async {

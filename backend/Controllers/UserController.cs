@@ -100,11 +100,14 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("me/avatar")]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(5 * 1024 * 1024)]
-    public async Task<ActionResult<UserProfileResponse>> UploadAvatar([FromForm] IFormFile avatar)
+    public async Task<ActionResult<UserProfileResponse>> UploadAvatar([FromForm] UploadAvatarRequest request)
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
+
+        var avatar = request.Avatar;
 
         if (avatar == null || avatar.Length == 0)
         {

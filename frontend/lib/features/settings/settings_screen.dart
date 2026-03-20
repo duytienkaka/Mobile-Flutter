@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../core/storage/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -10,6 +12,7 @@ import '../../core/l10n/locale_controller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/app_dialogs.dart';
 import '../../core/widgets/top_snackbar.dart';
@@ -243,6 +246,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openAvatarPreview() async {
+    final name = (fullName == null || fullName!.trim().isEmpty)
+        ? context.tr('Người dùng')
+        : fullName!.trim();
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+    final avatarImage = SettingsService.resolveAvatarUrl(avatarUrl);
+
+    final shouldChange = await showDialog<bool>(
+      context: context,
+      builder: (_) => _AvatarPreviewDialog(
+        avatarImage: avatarImage,
+        initials: initials,
+        name: name,
+      ),
+    );
+
+    if (shouldChange == true && mounted) {
+      await _openAvatarPicker();
+    }
+  }
+
   Future<void> _openAvatarPicker() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -288,22 +312,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (picked == null || !mounted) return;
 
-    final confirmed = await showAppConfirmDialog(
+    final croppedFile = await showDialog<File>(
       context: context,
-      title: context.tr('Dùng ảnh này?'),
-      message: context.tr('Xác nhận cập nhật ảnh đại diện mới.'),
-      cancelText: context.tr('Không'),
-      confirmText: context.tr('Sử dụng'),
-      icon: Icons.image_outlined,
-      extraContent: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.file(File(picked.path), height: 180, fit: BoxFit.cover),
-      ),
+      barrierDismissible: false,
+      builder: (_) => _AvatarCropConfirmDialog(sourceFile: File(picked.path)),
     );
 
-    if (!confirmed || !mounted) return;
+    if (croppedFile == null || !mounted) return;
     try {
-      final profile = await SettingsService.uploadAvatar(File(picked.path));
+      final profile = await SettingsService.uploadAvatar(croppedFile);
       if (!mounted) return;
       setState(() => avatarUrl = profile.avatarUrl);
       _showMessage(context.tr('Đã cập nhật ảnh đại diện'));
@@ -365,9 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _openPantryKeywordSettings() async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const PantryKeywordSettingsScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const PantryKeywordSettingsScreen()),
     );
   }
 
@@ -401,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: BackHeader(
                 title: context.tr('Cài đặt'),
                 trailing: GestureDetector(
-                  onTap: _openAvatarPicker,
+                  onTap: _openAvatarPreview,
                   child: CircleAvatar(
                     radius: 18,
                     backgroundColor: AppColors.primarySoft,
@@ -432,7 +447,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Row(
                           children: [
                             GestureDetector(
-                              onTap: _openAvatarPicker,
+                              onTap: _openAvatarPreview,
                               child: Stack(
                                 children: [
                                   CircleAvatar(
@@ -610,6 +625,339 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+}
+
+class _AvatarCropConfirmDialog extends StatefulWidget {
+  final File sourceFile;
+
+  const _AvatarCropConfirmDialog({required this.sourceFile});
+
+  @override
+  State<_AvatarCropConfirmDialog> createState() =>
+      _AvatarCropConfirmDialogState();
+}
+
+class _AvatarCropConfirmDialogState extends State<_AvatarCropConfirmDialog> {
+  final TransformationController _transformController =
+      TransformationController();
+  final GlobalKey _previewKey = GlobalKey();
+  static const double _viewportSize = 280;
+  static const double _cropSize = 220;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformController.value = Matrix4.identity();
+  }
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  Future<File?> _renderCroppedAvatar() async {
+    final boundary =
+        _previewKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final ui.Image image = await boundary.toImage(pixelRatio: 3);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (data == null) return null;
+
+    final dir = await getTemporaryDirectory();
+    final file = File(
+      '${dir.path}${Platform.pathSeparator}avatar_crop_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+    return file;
+  }
+
+  Future<void> _confirm() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final cropped = await _renderCroppedAvatar();
+      if (!mounted) return;
+      if (cropped == null) {
+        showTopSnackBar(
+          context,
+          context.tr('Không thể xử lý ảnh, vui lòng thử lại.'),
+          isError: true,
+        );
+        setState(() => _submitting = false);
+        return;
+      }
+      Navigator.of(context).pop(cropped);
+    } catch (_) {
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        context.tr('Không thể xử lý ảnh, vui lòng thử lại.'),
+        isError: true,
+      );
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.image_outlined, color: AppColors.textSecondary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('Dùng ảnh này?'),
+                      style: AppTextStyles.subtitle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr('Kéo hoặc phóng to để căn ảnh trong khung tròn.'),
+                style: AppTextStyles.caption.copyWith(
+                  fontStyle: FontStyle.normal,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: _viewportSize,
+                height: _viewportSize,
+                child: Stack(
+                  children: [
+                    Center(
+                      child: RepaintBoundary(
+                        key: _previewKey,
+                        child: SizedBox(
+                          width: _cropSize,
+                          height: _cropSize,
+                          child: ClipOval(
+                            child: InteractiveViewer(
+                              transformationController: _transformController,
+                              constrained: false,
+                              minScale: 1,
+                              maxScale: 4,
+                              boundaryMargin: const EdgeInsets.all(120),
+                              child: Image.file(
+                                widget.sourceFile,
+                                width: _cropSize,
+                                height: _cropSize,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _CircleCropOverlayPainter(
+                            holeDiameter: _cropSize,
+                            overlayColor: Colors.black.withOpacity(0.42),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Container(
+                            width: _cropSize,
+                            height: _cropSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.shadow,
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      child: Text(context.tr('Không')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _submitting ? null : _confirm,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(context.tr('Sử dụng')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarPreviewDialog extends StatelessWidget {
+  final String? avatarImage;
+  final String initials;
+  final String name;
+
+  const _AvatarPreviewDialog({
+    required this.avatarImage,
+    required this.initials,
+    required this.name,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(context.tr('Ảnh đại diện'), style: AppTextStyles.subtitle),
+              const SizedBox(height: 14),
+              CircleAvatar(
+                radius: 72,
+                backgroundColor: AppColors.primarySoft,
+                backgroundImage: avatarImage != null
+                    ? NetworkImage(avatarImage!)
+                    : null,
+                child: avatarImage == null
+                    ? Text(
+                        initials,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 40,
+                          color: AppColors.textPrimary,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              Text(name, style: AppTextStyles.body),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text(context.tr('Đóng')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: Text(context.tr('Đổi ảnh')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleCropOverlayPainter extends CustomPainter {
+  final double holeDiameter;
+  final Color overlayColor;
+
+  const _CircleCropOverlayPainter({
+    required this.holeDiameter,
+    required this.overlayColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rectPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final holeRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: holeDiameter,
+      height: holeDiameter,
+    );
+    final holePath = Path()..addOval(holeRect);
+    final overlayPath = Path.combine(
+      PathOperation.difference,
+      rectPath,
+      holePath,
+    );
+    final paint = Paint()..color = overlayColor;
+    canvas.drawPath(overlayPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircleCropOverlayPainter oldDelegate) {
+    return oldDelegate.holeDiameter != holeDiameter ||
+        oldDelegate.overlayColor != overlayColor;
   }
 }
 
