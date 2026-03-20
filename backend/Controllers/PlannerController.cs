@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Globalization;
+using System.Text;
 
 namespace Backend.Controllers;
 
@@ -18,15 +20,18 @@ public class PlannerController : ControllerBase
     private readonly AppDbContext _db;
     private readonly NotificationService _notificationService;
     private readonly WeeklyMealPlanService _weeklyMealPlanService;
+    private readonly GeminiService _geminiService;
 
     public PlannerController(
         AppDbContext db,
         NotificationService notificationService,
-        WeeklyMealPlanService weeklyMealPlanService)
+        WeeklyMealPlanService weeklyMealPlanService,
+        GeminiService geminiService)
     {
         _db = db;
         _notificationService = notificationService;
         _weeklyMealPlanService = weeklyMealPlanService;
+        _geminiService = geminiService;
     }
 
     [HttpPost("weekly/ensure")]
@@ -73,6 +78,138 @@ public class PlannerController : ControllerBase
             .ToListAsync();
 
         return data.Select(Map).ToList();
+    }
+
+    [HttpGet("weekly/ingredients")]
+    public async Task<ActionResult<WeeklyPlannerIngredientsResponse>> GetWeeklyIngredients(
+        [FromQuery] DateTime? weekStart,
+        CancellationToken ct)
+    {
+        var userId = GetUserId();
+        if (userId == null) return Unauthorized();
+
+        var todayUtc = DateTime.UtcNow.Date;
+        var start = StartOfWeek(DateTime.SpecifyKind((weekStart ?? todayUtc).Date, DateTimeKind.Utc));
+        var endExclusive = start.AddDays(7);
+
+        var plans = await _db.MealPlans
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Where(x => x.Date >= start && x.Date < endExclusive)
+            .Where(x => x.MealType == "breakfast" || x.MealType == "lunch" || x.MealType == "dinner")
+            .OrderBy(x => x.Date)
+            .ThenBy(x => x.MealType)
+            .ToListAsync(ct);
+
+        var response = new WeeklyPlannerIngredientsResponse
+        {
+            WeekStart = start,
+            WeekEnd = endExclusive.AddDays(-1),
+            Days = Enumerable.Range(0, 7)
+                .Select(offset => new DailyPlannerIngredientsResponse
+                {
+                    Date = start.AddDays(offset),
+                    Ingredients = new List<PlannerIngredientAggregateDto>()
+                })
+                .ToList()
+        };
+
+        if (plans.Count == 0)
+        {
+            return Ok(response);
+        }
+
+        var pantrySnapshot = await _db.Ingredients
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Where(x => x.Quantity > 0)
+            .Where(x => x.ExpiredAt == null || x.ExpiredAt >= todayUtc)
+            .Select(x => new GeminiIngredient
+            {
+                Name = x.Name,
+                Quantity = x.Quantity,
+                Unit = x.Unit
+            })
+            .ToListAsync(ct);
+
+        var recipeNames = plans
+            .Select(x => x.RecipeName.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (recipeNames.Count == 0)
+        {
+            return Ok(response);
+        }
+
+        List<GeminiRecipe> recipeDetails;
+        try
+        {
+            recipeDetails = await _geminiService.GenerateRecipesByNamesAsync(recipeNames, pantrySnapshot, ct);
+        }
+        catch
+        {
+            recipeDetails = new List<GeminiRecipe>();
+        }
+
+        var recipeByName = recipeDetails
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => NormalizeName(x.Name))
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var dayMap = response.Days.ToDictionary(
+            x => x.Date.Date,
+            x => new Dictionary<string, PlannerIngredientAggregateDto>(StringComparer.OrdinalIgnoreCase));
+
+        foreach (var plan in plans)
+        {
+            if (!recipeByName.TryGetValue(NormalizeName(plan.RecipeName), out var recipe))
+            {
+                continue;
+            }
+
+            if (!dayMap.TryGetValue(plan.Date.Date, out var dayIngredients))
+            {
+                continue;
+            }
+
+            var servings = plan.Servings <= 0 ? 1 : plan.Servings;
+            foreach (var ing in recipe.Ingredients)
+            {
+                var name = (ing.Name ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                var unit = (ing.Unit ?? string.Empty).Trim();
+                var baseQuantity = ing.Quantity <= 0 ? 1 : ing.Quantity;
+                var quantity = baseQuantity * servings;
+                var key = $"{NormalizeName(name)}|{unit.ToLowerInvariant()}";
+
+                if (dayIngredients.TryGetValue(key, out var existing))
+                {
+                    existing.Quantity += quantity;
+                }
+                else
+                {
+                    dayIngredients[key] = new PlannerIngredientAggregateDto
+                    {
+                        Name = name,
+                        Quantity = quantity,
+                        Unit = unit
+                    };
+                }
+            }
+        }
+
+        foreach (var day in response.Days)
+        {
+            if (!dayMap.TryGetValue(day.Date.Date, out var map)) continue;
+            day.Ingredients = map.Values
+                .OrderBy(x => x.Name)
+                .ToList();
+        }
+
+        return Ok(response);
     }
 
     [HttpPost]
@@ -169,6 +306,35 @@ public class PlannerController : ControllerBase
             ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         if (Guid.TryParse(sub, out var userId)) return userId;
         return null;
+    }
+
+    private static DateTime StartOfWeek(DateTime date)
+    {
+        var diff = (int)date.DayOfWeek - (int)DayOfWeek.Monday;
+        if (diff < 0) diff += 7;
+        return date.AddDays(-diff).Date;
+    }
+
+    private static string NormalizeName(string? input)
+    {
+        var text = (input ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder
+            .ToString()
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D')
+            .ToLowerInvariant();
     }
 
     private static MealPlanResponse Map(MealPlan entity) => new MealPlanResponse

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:frontend/features/shopping/shopping_screen.dart';
+import 'core/notifications/push_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/l10n/app_localizations.dart';
@@ -8,8 +10,10 @@ import 'features/auth/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   await ThemeController.instance.load();
   await LocaleController.instance.load();
+  await PushService.instance.initialize();
   runApp(const MyApp());
 }
 

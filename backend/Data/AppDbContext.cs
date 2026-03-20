@@ -52,6 +52,12 @@ public class AppDbContext : DbContext
         e.Property(x => x.PhoneNumber)
             .HasMaxLength(20);
 
+        e.Property(x => x.FcmToken)
+            .HasMaxLength(512);
+
+        e.Property(x => x.TimeZoneId)
+            .HasMaxLength(100);
+
         // Unique Email (nullable-safe)
         e.HasIndex(x => x.Email)
             .IsUnique()

@@ -25,3 +25,9 @@ public class ChangePasswordRequest
     [Required]
     public string NewPassword { get; set; } = "";
 }
+
+public class UploadAvatarRequest
+{
+    [Required]
+    public IFormFile Avatar { get; set; } = default!;
+}

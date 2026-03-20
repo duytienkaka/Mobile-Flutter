@@ -25,6 +25,14 @@ public class User
     [MaxLength(400)]
     public string? AvatarUrl { get; set; }
 
+    [MaxLength(512)]
+    public string? FcmToken { get; set; }
+
+    [MaxLength(100)]
+    public string? TimeZoneId { get; set; }
+
+    public int? UtcOffsetMinutes { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

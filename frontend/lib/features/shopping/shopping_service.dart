@@ -95,6 +95,50 @@ class ShoppingService extends ChangeNotifier {
 		);
 	}
 
+	Future<int> addManualItemsBatch({
+		required String listId,
+		required List<Map<String, dynamic>> items,
+	}) async {
+		if (items.isEmpty) return 0;
+		final res = await ApiClient.post(
+			'/shopping/lists/$listId/items/batch',
+			{
+				'items': items
+					.map(
+						(item) => {
+							'name': (item['name'] ?? '').toString(),
+							'quantity': item['quantity'] is num
+								? (item['quantity'] as num).toDouble()
+								: double.tryParse((item['quantity'] ?? '').toString()) ?? 1,
+							'unit': (item['unit'] ?? '').toString(),
+						},
+					)
+					.toList(),
+			},
+			auth: true,
+		);
+
+		if (res.statusCode != 200) {
+			throw Exception(_extractError(res));
+		}
+
+		final data = jsonDecode(res.body);
+		final createdCount = data is Map<String, dynamic> && data['createdCount'] is num
+			? (data['createdCount'] as num).toInt()
+			: 0;
+
+		final listIndex = _lists.indexWhere((e) => e.id == listId);
+		if (listIndex != -1 && createdCount > 0) {
+			final current = _lists[listIndex];
+			_lists[listIndex] = current.copyWith(
+				itemCount: current.itemCount + createdCount,
+			);
+			notifyListeners();
+		}
+
+		return createdCount;
+	}
+
 	Future<void> loadLists() async {
 		if (_loadingLists) return;
 		_loadingLists = true;

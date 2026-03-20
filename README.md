@@ -17,7 +17,7 @@ cd Mobile-Flutter
 ### 3.1 Cấu hình DB
 Mở file `backend/appsettings.json` và chỉnh `ConnectionStrings:DefaultConnection` nếu cần:
 ```json
-"DefaultConnection": "Host=localhost;Port=5432;Database=fridge_db;Username=postgres;Password=123456"
+"DefaultConnection": "Host=localhost;Port=5432;Database=fridge_db;Username=postgres;Password=CHANGE_ME"
 ```
 
 ### 3.2 Cài dotnet-ef (nếu chưa có)

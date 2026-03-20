@@ -1,9 +1,8 @@
 using Backend.DTOs;
 using Backend.Services;
-using Backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace Backend.Controllers;
@@ -22,7 +21,8 @@ public class NotificationController : ControllerBase
 
     private Guid? GetUserId()
     {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         if (Guid.TryParse(sub, out var userId)) return userId;
         return null;
     }
@@ -107,30 +107,15 @@ public class NotificationController : ControllerBase
         }
     }
 
-    [HttpGet("test-ingredients")]
-    [AllowAnonymous]
-    public async Task<IActionResult> GetTestIngredients([FromServices] AppDbContext dbContext)
+    [HttpDelete]
+    public async Task<IActionResult> ClearAllNotifications()
     {
         try
         {
-            var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == "test@gmail.com");
-            if (user == null) return NotFound(new { message = "Test user not found" });
-
-            var ingredients = await dbContext.Ingredients
-                .Where(x => x.UserId == user.Id)
-                .Select(x => new
-                {
-                    x.Id,
-                    x.Name,
-                    x.Quantity,
-                    x.Unit,
-                    x.ExpiredAt,
-                    x.Category,
-                    DaysLeft = x.ExpiredAt.HasValue ? (x.ExpiredAt.Value - DateTime.UtcNow).Days : (int?)null
-                })
-                .ToListAsync();
-
-            return Ok(ingredients);
+            var userId = GetUserId();
+            if (userId == null) return Unauthorized();
+            var deletedCount = await _notificationService.ClearAllNotificationsAsync(userId.Value);
+            return Ok(new { deletedCount });
         }
         catch (Exception ex)
         {
@@ -138,63 +123,28 @@ public class NotificationController : ControllerBase
         }
     }
 
-    [HttpPost("check-expired")]
-    [AllowAnonymous]
-    public async Task<IActionResult> CheckExpiredIngredients([FromServices] AppDbContext dbContext)
+    [HttpPost("device-token")]
+    public async Task<IActionResult> RegisterDeviceToken([FromBody] RegisterDeviceTokenRequest request)
     {
         try
         {
-            var now = DateTime.UtcNow;
-            var warningDate = now.AddDays(3);
+            var userId = GetUserId();
+            if (userId == null) return Unauthorized();
 
-            // Get all users with ingredients expiring soon
-            var usersWithExpiringIngredients = await dbContext.Ingredients
-                .Where(x => x.ExpiredAt.HasValue && x.ExpiredAt <= warningDate)
-                .Select(x => x.UserId)
-                .Distinct()
-                .ToListAsync();
-
-            var createdCount = 0;
-
-            foreach (var userId in usersWithExpiringIngredients)
+            var token = request.Token?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(token))
             {
-                var expiringIngredients = await dbContext.Ingredients
-                    .Where(x => x.UserId == userId && x.ExpiredAt.HasValue && x.ExpiredAt <= warningDate)
-                    .ToListAsync();
-
-                foreach (var ingredient in expiringIngredients)
-                {
-                    var daysLeft = (ingredient.ExpiredAt!.Value - now).Days;
-
-                    string title, body;
-                    if (daysLeft <= 0)
-                    {
-                        title = "Nguyên liệu đã hết hạn";
-                        body = $"{ingredient.Name} đã hết hạn sử dụng. Vui lòng kiểm tra và xử lý.";
-                    }
-                    else
-                    {
-                        title = "Nguyên liệu sắp hết hạn";
-                        body = $"{ingredient.Name} sẽ hết hạn trong {daysLeft} ngày. Hãy sử dụng sớm.";
-                    }
-
-                    // Check if we already sent a notification for this ingredient recently
-                    var recentNotification = await dbContext.Notifications
-                        .Where(n => n.UserId == userId &&
-                                   n.Title == title &&
-                                   n.Body.Contains(ingredient.Name) &&
-                                   n.CreatedAt > now.AddHours(-24))
-                        .FirstOrDefaultAsync();
-
-                    if (recentNotification == null)
-                    {
-                        await _notificationService.CreateNotificationAsync(userId, title, body);
-                        createdCount++;
-                    }
-                }
+                return BadRequest(new { message = "Token is required." });
             }
 
-            return Ok(new { message = $"Checked expired ingredients. Created {createdCount} notifications." });
+            await _notificationService.RegisterDeviceTokenAsync(
+                userId.Value,
+                token,
+                request.TimeZoneId,
+                request.UtcOffsetMinutes
+            );
+
+            return Ok(new { message = "Device token registered." });
         }
         catch (Exception ex)
         {
@@ -202,34 +152,4 @@ public class NotificationController : ControllerBase
         }
     }
 
-    [HttpGet("test-fetch")]
-    [AllowAnonymous]
-    public async Task<IActionResult> GetTestNotifications([FromServices] AppDbContext dbContext)
-    {
-        try
-        {
-            var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == "test@gmail.com");
-            if (user == null) return NotFound(new { message = "Test user not found" });
-
-            var notifications = await dbContext.Notifications
-                .Where(n => n.UserId == user.Id)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-
-            var response = notifications.Select(n => new
-            {
-                n.Id,
-                n.Title,
-                n.Body,
-                n.IsRead,
-                n.CreatedAt
-            });
-
-            return Ok(response);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
 }

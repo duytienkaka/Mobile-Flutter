@@ -43,6 +43,8 @@ class _TodayTabState extends State<TodayTab> {
     final tabType = _selectedTab == 0
         ? TodayTabType.full
         : TodayTabType.near;
+    final isNutritionTab = tabType == TodayTabType.near;
+    final isRefreshingCurrentTab = _service.isLoadingFor(tabType);
     final recipes = tabType == TodayTabType.full
         ? _service.fullRecipes
         : _service.nearRecipes;
@@ -165,7 +167,7 @@ class _TodayTabState extends State<TodayTab> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: recipes.isEmpty
+                      onPressed: (!isNutritionTab || recipes.isEmpty || isRefreshingCurrentTab)
                           ? null
                           : () => _service.loadTab(tabType, refresh: true),
                       style: OutlinedButton.styleFrom(
@@ -181,7 +183,13 @@ class _TodayTabState extends State<TodayTab> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: Text(context.tr('Đổi món')),
+                      child: isRefreshingCurrentTab && isNutritionTab
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(context.tr('Đổi món')),
                     ),
                   ),
                   const SizedBox(width: 12),

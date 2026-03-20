@@ -41,6 +41,16 @@ public class ShoppingItemCreateRequest
     public string Unit { get; set; } = "";
 }
 
+public class ShoppingItemsBatchCreateRequest
+{
+    public List<ShoppingItemCreateRequest> Items { get; set; } = new();
+}
+
+public class ShoppingItemsBatchCreateResponse
+{
+    public int CreatedCount { get; set; }
+}
+
 public class ShoppingItemUpdateRequest
 {
     public string Name { get; set; } = "";

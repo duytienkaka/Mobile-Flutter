@@ -13,6 +13,31 @@ public class NotificationService
         _context = context;
     }
 
+    public async Task RegisterDeviceTokenAsync(
+        Guid userId,
+        string token,
+        string? timeZoneId,
+        int? utcOffsetMinutes)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null)
+        {
+            throw new Exception("User not found.");
+        }
+
+        user.FcmToken = token;
+        user.TimeZoneId = string.IsNullOrWhiteSpace(timeZoneId) ? null : timeZoneId.Trim();
+        user.UtcOffsetMinutes = utcOffsetMinutes;
+
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<User?> GetUserPushInfoAsync(Guid userId)
+    {
+        return await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
     public async Task<Notification> CreateNotificationAsync(Guid userId, string title, string body)
     {
         var notification = new Notification
@@ -71,6 +96,20 @@ public class NotificationService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<int> ClearAllNotificationsAsync(Guid userId)
+    {
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == userId)
+            .ToListAsync();
+
+        if (notifications.Count == 0)
+            return 0;
+
+        _context.Notifications.RemoveRange(notifications);
+        await _context.SaveChangesAsync();
+        return notifications.Count;
     }
 
     public async Task<User> GetTestUserAsync()
