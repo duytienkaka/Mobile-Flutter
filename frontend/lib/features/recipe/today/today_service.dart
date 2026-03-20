@@ -548,11 +548,14 @@ class TodayService extends ChangeNotifier {
 			);
 			if (newList != null) {
 				for (final ingredient in missing) {
+					final normalizedUnit = ingredient.unit.trim().isEmpty
+						? 'phan'
+						: ingredient.unit;
 					await shoppingService.addManualItem(
 						listId: newList.id,
 						name: ingredient.name,
-						quantity: 0,
-						unit: '',
+						quantity: ingredient.quantity <= 0 ? 1 : ingredient.quantity,
+						unit: normalizedUnit,
 					);
 				}
 				return;

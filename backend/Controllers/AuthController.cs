@@ -24,9 +24,23 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var user = await _auth.RegisterByEmail(dto.FullName, dto.Email, dto.Password);
+            var user = await _auth.RegisterByEmail(dto.FullName, dto.Email, dto.Password, dto.OtpCode);
             var token = _jwt.GenerateToken(user);
             return Ok(new { token });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("send-otp-email")]
+    public async Task<IActionResult> SendOtpEmail(SendEmailOtpDto dto)
+    {
+        try
+        {
+            await _otp.SendEmailOtp(dto.Email, dto.IsRegister);
+            return Ok("Email OTP sent");
         }
         catch (Exception ex)
         {

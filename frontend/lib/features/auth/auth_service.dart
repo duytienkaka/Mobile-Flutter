@@ -69,13 +69,14 @@ class AuthService {
   }
 
   static Future<void> registerEmail(
-      String fullName, String email, String password) async {
+      String fullName, String email, String password, String otpCode) async {
     final res = await ApiClient.post(
       '/auth/register-email',
       {
         'fullName': fullName,
         'email': email,
         'password': password,
+        'otpCode': otpCode,
       },
     );
 
@@ -83,9 +84,6 @@ class AuthService {
       throw Exception(
           _extractMessage(res.body, 'Đăng ký không thành công.'));
     }
-
-    final token = jsonDecode(res.body)['token'];
-    await TokenStorage.saveToken(token);
   }
 
   static Future<void> sendOtp(String phone) async {
@@ -100,6 +98,18 @@ class AuthService {
     if (res.statusCode != 200) {
       throw Exception(
           _extractMessage(res.body, 'Không thể gửi OTP. Vui lòng thử lại.'));
+    }
+  }
+
+  static Future<void> sendOtpForRegisterEmail(String email) async {
+    final res = await ApiClient.post(
+      '/auth/send-otp-email',
+      {'email': email, 'isRegister': true},
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception(
+          _extractMessage(res.body, 'Không thể gửi OTP qua email. Vui lòng thử lại.'));
     }
   }
 
@@ -129,9 +139,6 @@ class AuthService {
       throw Exception(_extractMessage(
           res.body, 'Đăng ký số điện thoại không thành công.'));
     }
-
-    final token = jsonDecode(res.body)['token'];
-    await TokenStorage.saveToken(token);
   }
 
   static Future<void> loginPhone(String phone, String otp) async {

@@ -16,15 +16,32 @@ public class AuthService
     }
 
     // ===== REGISTER EMAIL =====
-    public async Task<User> RegisterByEmail(string fullName, string email, string password)
+    public async Task<User> RegisterByEmail(string fullName, string email, string password, string otpCode)
     {
-        if (await _db.Users.AnyAsync(x => x.Email == email))
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        if (await _db.Users.AnyAsync(x => x.Email == normalizedEmail))
             throw new Exception("Email already exists");
+
+        var otp = _db.OtpCodes
+            .Where(x =>
+                x.PhoneNumber == normalizedEmail &&
+                x.Code == otpCode &&
+                x.Purpose == "RegisterEmail" &&
+                !x.IsUsed &&
+                x.ExpiredAt > DateTime.UtcNow)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefault();
+
+        if (otp == null)
+            throw new Exception("Invalid or expired OTP");
+
+        otp.IsUsed = true;
 
         var user = new User
         {
             FullName = fullName,
-            Email = email,
+            Email = normalizedEmail,
             PasswordHash = HashPassword(password),
             IsEmailVerified = true
         };

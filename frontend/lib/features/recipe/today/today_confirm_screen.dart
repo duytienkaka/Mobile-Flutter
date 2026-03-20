@@ -688,6 +688,7 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
     try {
       final scaledMissing = widget.recipe.missingIngredients
           .where((item) => PantryScope.isPantryManagedIngredient(item.name))
+          .map(_normalizeMissingIngredient)
           .map(_scaledIngredient)
           .toList();
 
@@ -724,6 +725,26 @@ class _TodayConfirmScreenState extends State<TodayConfirmScreen> {
       name: item.name,
       quantity: item.quantity * _servings,
       unit: item.unit,
+    );
+  }
+
+  TodayIngredient _normalizeMissingIngredient(TodayIngredient item) {
+    if (item.unit.trim().isNotEmpty) return item;
+    final matched = widget.recipe.ingredients.where((ingredient) {
+      return ingredient.name.trim().toLowerCase() == item.name.trim().toLowerCase() &&
+          ingredient.unit.trim().isNotEmpty;
+    }).toList();
+    if (matched.isEmpty) {
+      return TodayIngredient(
+        name: item.name,
+        quantity: item.quantity,
+        unit: 'phan',
+      );
+    }
+    return TodayIngredient(
+      name: item.name,
+      quantity: item.quantity,
+      unit: matched.first.unit,
     );
   }
 

@@ -116,7 +116,6 @@ D:\Mobile-Flutter\backend\obj\Debug\net10.0\rjimswa.dswa.cache.json
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\rjsmcshtml.dswa.cache.json
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\scopedcss\bundle\backend.styles.css
-D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\kej86jtips-{0}-802pyrysva-802pyrysva.gz
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\pcllgev4l3-{0}-6sc84e027z-6sc84e027z.gz
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\3np77zmpmi-{0}-ymujad6324-ymujad6324.gz
 D:\Mobile-Flutter\backend\obj\Debug\net10.0\compressed\nrizvkqtxg-{0}-rbpjlvyqt0-rbpjlvyqt0.gz
@@ -141,3 +140,6 @@ D:\Mobile-Flutter\backend\bin\Debug\net10.0\Microsoft.Bcl.AsyncInterfaces.dll
 D:\Mobile-Flutter\backend\bin\Debug\net10.0\System.Management.dll
 D:\Mobile-Flutter\backend\bin\Debug\net10.0\runtimes\win\lib\net7.0\System.Management.dll
 D:\Mobile-Flutter\backend\bin\Debug\net10.0\appsettings.Production.json
+D:\Mobile-Flutter\backend\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
+D:\Mobile-Flutter\backend\bin\Debug\net10.0\MailKit.dll
+D:\Mobile-Flutter\backend\bin\Debug\net10.0\MimeKit.dll

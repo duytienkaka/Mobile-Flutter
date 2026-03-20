@@ -37,6 +37,7 @@ public partial class Program
         });
 
         builder.Services.AddScoped<AuthService>();
+        builder.Services.AddScoped<EmailSenderService>();
         builder.Services.AddScoped<Backend.Auth.Services.OtpService>();
         builder.Services.AddScoped<Backend.Auth.Services.JwtService>();
         builder.Services.AddHttpClient<GeminiService>();

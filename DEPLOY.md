@@ -19,6 +19,12 @@ Set these on your host:
 - `Jwt__Audience`
 - `FIREBASE_CREDENTIALS_JSON` (or `FIREBASE_CREDENTIALS_PATH` / `GOOGLE_APPLICATION_CREDENTIALS`)
 - `Gemini__ApiKey` (if AI features are used)
+- `Smtp__Host`
+- `Smtp__Port`
+- `Smtp__Username`
+- `Smtp__Password`
+- `Smtp__FromEmail`
+- `Smtp__FromName`
 
 If hosting with Docker, mount Firebase JSON and set:
 

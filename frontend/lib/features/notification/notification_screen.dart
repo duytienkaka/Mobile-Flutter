@@ -32,6 +32,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool _isClearingAll = false;
   _NotificationFilter _selectedFilter = _NotificationFilter.all;
 
+  bool get _isDarkMode {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -440,7 +444,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: notif.isRead ? AppColors.surface : const Color(0xFFF5F9FF),
+            color: notif.isRead
+                ? AppColors.surface
+                : (_isDarkMode ? AppColors.surfaceSoft : const Color(0xFFF5F9FF)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: notif.isRead ? AppColors.border : AppColors.primary,
@@ -675,8 +681,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFF8EE), Color(0xFFF4FAFF)],
+                      gradient: LinearGradient(
+                        colors: _isDarkMode
+                            ? [const Color(0xFF252525), const Color(0xFF1E2530)]
+                            : [const Color(0xFFFFF8EE), const Color(0xFFF4FAFF)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -721,7 +729,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 : AppColors.primary,
                             foregroundColor: _isMarkingAllRead || _unreadCount == 0
                                 ? AppColors.textMuted
-                                : Colors.white,
+                                : AppColors.black,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
