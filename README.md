@@ -47,7 +47,7 @@ flutter run -d chrome
 - API base URL mặc định: `http://localhost:5074` trong `frontend/lib/core/api/api_client.dart`.
 
 ## Author
-Dương Văn Việt
-Phạm Đức Duy Tiến
-Vương Đức Tuấn
+- Dương Văn Việt
+- Phạm Đức Duy Tiến
+- Vương Đức Tuấn
 
