@@ -1,65 +1,53 @@
-# Mobile-Flutter (Backend + Flutter)
+# Mobile-Flutter
 
-Tài liệu này giúp đồng đội clone code và chạy được ngay.
+Ứng dụng quản lý tủ lạnh thông minh (mobile + web) với backend ASP.NET Core + PostgreSQL và frontend Flutter. Người dùng có thể đăng nhập bằng email/password hoặc OTP (email/phone), quản lý nguyên liệu, lập kế hoạch bữa ăn, danh sách mua sắm và nhận thông báo.
 
-## 1) Yêu cầu môi trường
-- .NET SDK (khuyến nghị 8+)
-- Flutter SDK (stable)
-- PostgreSQL (cài đặt và chạy service)
+## Features
+- Authentication: đăng ký & đăng nhập bằng email/password và mã OTP qua email/số điện thoại.
+- Ingredient management: thêm/sửa/xóa nguyên liệu, phân loại, kiểm tra hạn sử dụng với cảnh báo.
+- Recipe & meal planning: tìm công thức, gợi ý bữa ăn, tạo và quản lý kế hoạch ăn uống.
+- Shopping list: tạo và cập nhật danh sách mua hàng tự động từ kế hoạch/ngoại lệ.
+- Notification & history: thông báo nguyên liệu sắp hết/hết hạn và lịch sử sử dụng/đi chợ.
 
-## 2) Clone repo
+## Technologies
+- Backend: ASP.NET Core (C#), Entity Framework Core, PostgreSQL, JWT, Swagger.
+- Frontend: Flutter (mobile/web), HTTP API client, state management.
+- Additional: Dockerfile cho backend, cron service kiểm tra nguyên liệu hết hạn.
+
+## Installation
+1. Clone code:
 ```bash
 git clone <repo-url>
-cd Mobile-Flutter
+cd Mobile-Flutter-main
 ```
 
-## 3) Backend (ASP.NET Core + PostgreSQL)
-### 3.1 Cấu hình DB
-Mở file `backend/appsettings.json` và chỉnh `ConnectionStrings:DefaultConnection` nếu cần:
+2. Backend
+- Cài .NET SDK 8+ và PostgreSQL.
+- Sửa `backend/appsettings.json`:
 ```json
-"DefaultConnection": "Host=localhost;Port=5432;Database=fridge_db;Username=postgres;Password=CHANGE_ME"
+"DefaultConnection": "Host=localhost;Port=5432;Database=fridge_db;Username=postgres;Password=YOUR_PASSWORD"
 ```
-
-### 3.2 Cài dotnet-ef (nếu chưa có)
-```bash
-dotnet tool install -g dotnet-ef
-```
-
-### 3.3 Chạy migration tạo DB
+- Chạy migration và start API:
 ```bash
 cd backend
+dotnet tool install -g dotnet-ef
 dotnet ef database update
-```
-
-### 3.4 Chạy API
-```bash
 dotnet run
 ```
-API chạy mặc định tại: `http://localhost:5074`
+- Kiểm tra Swagger: `http://localhost:5074/swagger`
 
-Swagger: `http://localhost:5074/swagger`
-
-## 4) Frontend (Flutter)
-### 4.1 Cài packages
+3. Frontend
+- Cài Flutter SDK (stable).
+- Cài deps và chạy:
 ```bash
 cd frontend
 flutter pub get
-```
-
-### 4.2 Chạy app
-- Web:
-```bash
 flutter run -d chrome
 ```
+- API base URL mặc định: `http://localhost:5074` trong `frontend/lib/core/api/api_client.dart`.
 
-> Base URL đang là `http://localhost:5074` trong `frontend/lib/core/api/api_client.dart`.
+## Author
+Dương Văn Việt
+Phạm Đức Duy Tiến
+Vương Đức Tuấn
 
-## 5) Ghi chú nhanh
-- Nếu login/register lỗi do DB: kiểm tra PostgreSQL đang chạy và connection string đúng.
-- OTP ở môi trường dev được in ra ở console backend.
-- CORS đã mở cho môi trường dev để Flutter web gọi API.
-
-## 6) Thứ tự khởi chạy nhanh
-1. Start PostgreSQL
-2. `cd backend` → `dotnet ef database update` → `dotnet run`
-3. `cd frontend` → `flutter pub get` → `flutter run -d chrome`
